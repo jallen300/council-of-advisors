@@ -262,7 +262,15 @@
     </div>
     <div class="settings-subtitle">Saved to this browser only — they'll be here next time you open the app.</div>
     <div class="save-notice">🔒 Stored locally on your device. Never sent anywhere except the respective AI provider.</div>
-    <div class="claude-note">✦ <strong style="color:var(--claude-color)">Claude</strong> is powered directly — no key needed here.</div>
+    <div class="claude-note">✦ <strong style="color:var(--claude-color)">Claude</strong> needs a free proxy to work from a browser. <a href="https://developers.cloudflare.com/workers/get-started/guide/" target="_blank" class="key-link">Set up a Cloudflare Worker ↗</a> and paste its URL below.</div>
+
+    <div class="key-field claude-proxy">
+      <label style="color:var(--claude-color)">CLAUDE PROXY URL <span class="saved-tag" id="svClaude"></span></label>
+      <div class="key-wrap">
+        <input type="text" id="claudeProxyKey" placeholder="https://your-worker.workers.dev" autocomplete="off" oninput="markFilled(this)">
+      </div>
+      <div class="key-note">Optional — skip to use Claude without a proxy (will show an error)</div>
+    </div>
 
     <div class="key-field gemini">
       <label>GEMINI API KEY <span class="saved-tag" id="svGemini"></span></label>
@@ -309,8 +317,8 @@
 </div>
 
 <script>
-  const SK = { gemini:'arena_key_gemini', gpt:'arena_key_gpt', grok:'arena_key_grok', deepseek:'arena_key_deepseek' };
-  let keys = { gemini:'', gpt:'', grok:'', deepseek:'' };
+  const SK = { gemini:'arena_key_gemini', gpt:'arena_key_gpt', grok:'arena_key_grok', deepseek:'arena_key_deepseek', claudeProxy:'arena_key_claude_proxy' };
+  let keys = { gemini:'', gpt:'', grok:'', deepseek:'', claudeProxy:'' };
   let isLoading = false;
   const histories = { claude:[], gemini:[], gpt:[], grok:[], deepseek:[] };
   let activeAIs = { claude:true, gemini:true, gpt:true, grok:true, deepseek:true };
@@ -337,25 +345,28 @@
 
   // ── Settings panel ──
   function openSettings() {
-    document.getElementById('geminiKey').value   = keys.gemini;
-    document.getElementById('openaiKey').value   = keys.gpt;
-    document.getElementById('grokKey').value     = keys.grok;
-    document.getElementById('deepseekKey').value = keys.deepseek;
-    ['geminiKey','openaiKey','grokKey','deepseekKey'].forEach(id => markFilled(document.getElementById(id)));
-    document.getElementById('svGemini').textContent   = keys.gemini   ? '✓ saved' : '';
-    document.getElementById('svGpt').textContent      = keys.gpt      ? '✓ saved' : '';
-    document.getElementById('svGrok').textContent     = keys.grok     ? '✓ saved' : '';
-    document.getElementById('svDeepseek').textContent = keys.deepseek ? '✓ saved' : '';
+    document.getElementById('geminiKey').value      = keys.gemini;
+    document.getElementById('openaiKey').value      = keys.gpt;
+    document.getElementById('grokKey').value        = keys.grok;
+    document.getElementById('deepseekKey').value    = keys.deepseek;
+    document.getElementById('claudeProxyKey').value = keys.claudeProxy;
+    ['geminiKey','openaiKey','grokKey','deepseekKey','claudeProxyKey'].forEach(id => markFilled(document.getElementById(id)));
+    document.getElementById('svGemini').textContent   = keys.gemini      ? '✓ saved' : '';
+    document.getElementById('svGpt').textContent      = keys.gpt         ? '✓ saved' : '';
+    document.getElementById('svGrok').textContent     = keys.grok        ? '✓ saved' : '';
+    document.getElementById('svDeepseek').textContent = keys.deepseek    ? '✓ saved' : '';
+    document.getElementById('svClaude').textContent   = keys.claudeProxy ? '✓ saved' : '';
     document.getElementById('overlay').classList.remove('hidden');
   }
   function closeSettings() { document.getElementById('overlay').classList.add('hidden'); }
   function overlayClick(e) { if(e.target.id==='overlay') closeSettings(); }
 
   function saveSettings() {
-    keys.gemini   = document.getElementById('geminiKey').value.trim();
-    keys.gpt      = document.getElementById('openaiKey').value.trim();
-    keys.grok     = document.getElementById('grokKey').value.trim();
-    keys.deepseek = document.getElementById('deepseekKey').value.trim();
+    keys.gemini      = document.getElementById('geminiKey').value.trim();
+    keys.gpt         = document.getElementById('openaiKey').value.trim();
+    keys.grok        = document.getElementById('grokKey').value.trim();
+    keys.deepseek    = document.getElementById('deepseekKey').value.trim();
+    keys.claudeProxy = document.getElementById('claudeProxyKey').value.trim();
     try {
       for (const [ai,sk] of Object.entries(SK)) {
         keys[ai] ? localStorage.setItem(sk, keys[ai]) : localStorage.removeItem(sk);
@@ -447,19 +458,39 @@
     else   { b.textContent=text; }
   }
 
-  // ── AI fetchers ──
+  // ── Claude ──
+  // The Anthropic API blocks direct browser requests (CORS policy).
+  // To use Claude, set up a free Cloudflare Worker proxy (see README)
+  // and enter its URL in the Keys panel below.
   async function fetchClaude(card) {
     try {
-      const res=await fetch('https://api.anthropic.com/v1/messages',{
-        method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
-          messages:histories.claude.map(m=>({role:m.role,content:m.content}))})
+      const endpoint = keys.claudeProxy
+        ? keys.claudeProxy.replace(/\/$/, '') + '/v1/messages'
+        : null;
+
+      if (!endpoint) {
+        setCard(card,
+          '⚠️ Claude requires a proxy URL to work from a web page.\n\n' +
+          'Tap ⚙ Keys and paste your Cloudflare Worker URL into the Claude Proxy field.\n\n' +
+          'See the setup guide at: github.com/jallen300/ai-arena', true);
+        histories.claude.pop(); // remove the user message we just added
+        return;
+      }
+
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514', max_tokens: 1000,
+          messages: histories.claude.map(m => ({ role: m.role, content: m.content }))
+        })
       });
-      const d=await res.json();
-      if(d.error) throw new Error(d.error.message);
-      const t=d.content.map(b=>b.text||'').join('');
-      histories.claude.push({role:'assistant',content:t}); setCard(card,t);
-    } catch(e){ setCard(card,'Claude error: '+e.message,true); }
+      const d = await res.json();
+      if (d.error) throw new Error(d.error.message);
+      const t = d.content.map(b => b.text || '').join('');
+      histories.claude.push({ role: 'assistant', content: t });
+      setCard(card, t);
+    } catch(e) { setCard(card, 'Claude error: ' + e.message, true); }
   }
 
   async function fetchGemini(card) {
@@ -468,7 +499,7 @@
         role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]
       }));
       const res=await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${keys.gemini}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`,
         {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents})}
       );
       const d=await res.json();
