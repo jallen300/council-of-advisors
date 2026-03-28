@@ -493,50 +493,130 @@
     } catch(e) { setCard(card, 'Claude error: ' + e.message, true); }
   }
 
+  // Gemini model fallback list - tries each in order until one works
+  const GEMINI_MODELS = ['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash','gemini-2.0-pro','gemini-1.5-flash','gemini-1.5-pro'];
+  let workingGeminiModel = null;
+
   async function fetchGemini(card) {
-    try {
-      const contents=histories.gemini.map(m=>({
-        role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]
-      }));
-      const res=await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${keys.gemini}`,
-        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents})}
-      );
-      const d=await res.json();
-      if(d.error) throw new Error(d.error.message);
-      const t=d.candidates?.[0]?.content?.parts?.[0]?.text||'(no response)';
-      histories.gemini.push({role:'assistant',content:t}); setCard(card,t);
-    } catch(e){ setCard(card,'Gemini error: '+e.message,true); }
+    const contents = histories.gemini.map(m => ({
+      role: m.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: m.content }]
+    }));
+
+    const modelsToTry = workingGeminiModel ? [workingGeminiModel] : GEMINI_MODELS;
+
+    for (const model of modelsToTry) {
+      let res, d;
+      try {
+        res = await fetch(
+          'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + keys.gemini,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents }) }
+        );
+        d = await res.json();
+      } catch(e) {
+        setCard(card, 'Gemini error: ' + e.message, true);
+        return;
+      }
+
+      if (d.error) {
+        const msg = d.error.message || '';
+        if (msg.includes('not found') || msg.includes('not supported') || msg.includes('no longer available') || msg.includes('deprecated')) {
+          continue; // silently try next model
+        }
+        setCard(card, 'Gemini error: ' + msg, true);
+        return;
+      }
+
+      const t = d.candidates?.[0]?.content?.parts?.[0]?.text || '(no response)';
+      workingGeminiModel = model;
+      histories.gemini.push({ role: 'assistant', content: t });
+      setCard(card, t);
+      return;
+    }
+
+    setCard(card, 'Gemini error: All known models unavailable. Google may have updated their API.', true);
   }
+
+  // OpenAI model fallback list - tries each in order until one works
+  const GPT_MODELS = ['gpt-5.4-mini','gpt-5.4','gpt-4.1-mini','gpt-4.1','gpt-4o-mini','gpt-4o'];
+  let workingGptModel = null;
 
   async function fetchGPT(card) {
-    try {
-      const res=await fetch('https://api.openai.com/v1/chat/completions',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${keys.gpt}`},
-        body:JSON.stringify({model:'gpt-4o-mini',max_tokens:1000,
-          messages:histories.gpt.map(m=>({role:m.role,content:m.content}))})
-      });
-      const d=await res.json();
-      if(d.error) throw new Error(d.error.message);
-      const t=d.choices?.[0]?.message?.content||'(no response)';
-      histories.gpt.push({role:'assistant',content:t}); setCard(card,t);
-    } catch(e){ setCard(card,'ChatGPT error: '+e.message,true); }
+    const messages = histories.gpt.map(m => ({ role: m.role, content: m.content }));
+    const modelsToTry = workingGptModel ? [workingGptModel] : GPT_MODELS;
+
+    for (const model of modelsToTry) {
+      let res, d;
+      try {
+        res = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + keys.gpt },
+          body: JSON.stringify({ model, max_tokens: 1000, messages })
+        });
+        d = await res.json();
+      } catch(e) {
+        setCard(card, 'ChatGPT error: ' + e.message, true);
+        return;
+      }
+
+      if (d.error) {
+        const msg = d.error.message || '';
+        if (msg.includes('does not exist') || msg.includes('deprecated') || msg.includes('not found') || msg.includes('invalid model')) {
+          continue;
+        }
+        setCard(card, 'ChatGPT error: ' + msg, true);
+        return;
+      }
+
+      const t = d.choices?.[0]?.message?.content || '(no response)';
+      workingGptModel = model;
+      histories.gpt.push({ role: 'assistant', content: t });
+      setCard(card, t);
+      return;
+    }
+
+    setCard(card, 'ChatGPT error: All known models are unavailable. OpenAI may have updated their API.', true);
   }
 
+  // Grok model fallback list - tries each in order until one works
+  const GROK_MODELS = ['grok-4','grok-4.20','grok-3','grok-3-fast','grok-2'];
+  let workingGrokModel = null;
+
   async function fetchGrok(card) {
-    try {
-      const res=await fetch('https://api.x.ai/v1/chat/completions',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${keys.grok}`},
-        body:JSON.stringify({model:'grok-3-fast',max_tokens:1000,
-          messages:histories.grok.map(m=>({role:m.role,content:m.content}))})
-      });
-      const d=await res.json();
-      if(d.error) throw new Error(d.error.message);
-      const t=d.choices?.[0]?.message?.content||'(no response)';
-      histories.grok.push({role:'assistant',content:t}); setCard(card,t);
-    } catch(e){ setCard(card,'Grok error: '+e.message,true); }
+    const messages = histories.grok.map(m => ({ role: m.role, content: m.content }));
+    const modelsToTry = workingGrokModel ? [workingGrokModel] : GROK_MODELS;
+
+    for (const model of modelsToTry) {
+      let res, d;
+      try {
+        res = await fetch('https://api.x.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + keys.grok },
+          body: JSON.stringify({ model, max_tokens: 1000, messages })
+        });
+        d = await res.json();
+      } catch(e) {
+        setCard(card, 'Grok error: ' + e.message, true);
+        return;
+      }
+
+      if (d.error) {
+        const msg = d.error.message || '';
+        if (msg.includes('does not exist') || msg.includes('deprecated') || msg.includes('not found') || msg.includes('invalid model') || msg.includes('no longer supported')) {
+          continue;
+        }
+        setCard(card, 'Grok error: ' + msg, true);
+        return;
+      }
+
+      const t = d.choices?.[0]?.message?.content || '(no response)';
+      workingGrokModel = model;
+      histories.grok.push({ role: 'assistant', content: t });
+      setCard(card, t);
+      return;
+    }
+
+    setCard(card, 'Grok error: All known models are unavailable. xAI may have updated their API.', true);
   }
 
   async function fetchDeepSeek(card) {
