@@ -551,7 +551,7 @@
         res = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + keys.gpt },
-          body: JSON.stringify({ model, max_tokens: 1000, messages })
+          body: JSON.stringify({ model, max_completion_tokens: 1000, messages })
         });
         d = await res.json();
       } catch(e) {
