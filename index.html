@@ -1,305 +1,309 @@
 <!DOCTYPE html>
-<!-- AI Arena v4 -->
+<!-- Council of Advisors v1 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>AI Arena</title>
+<title>Council of Advisors</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0a0a0f;
-    --surface: #13131a;
-    --border: #1e1e2e;
-    --claude-color:   #e8a020;
-    --gemini-color:   #4285f4;
-    --gpt-color:      #10a37f;
-    --grok-color:     #cc4444;
-    --deepseek-color: #7c5cbf;
-    --synth-color:    #e040fb;
-    --text: #e8e8f0;
-    --muted: #6b6b80;
-    --input-bg: #1a1a24;
-    --radius: 14px;
+    --bg: #080b12; --surface: #0e1220; --border: #1a2035;
+    --claude-color:#c8933a; --gemini-color:#4a7fd4; --gpt-color:#2e9e76;
+    --grok-color:#b84040; --deepseek-color:#7055aa; --synth-color:#9c6fd6;
+    --text:#dde2ec; --muted:#5a6275; --input-bg:#0c1018; --radius:14px;
   }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body {
-    font-family: 'Syne', sans-serif;
-    background: var(--bg); color: var(--text);
-    min-height: 100vh; display: flex; flex-direction: column;
-    max-width: 480px; margin: 0 auto; position: relative; overflow-x: hidden;
-  }
-  body::before {
-    content: ''; position: fixed; inset: 0;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
-    background-size: 40px 40px; pointer-events: none; z-index: 0;
-  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);
+    min-height:100vh;display:flex;flex-direction:column;
+    max-width:480px;margin:0 auto;position:relative;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;
+    background:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(139,105,20,.12) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 100%, rgba(42,82,152,.08) 0%, transparent 50%);
+    pointer-events:none;z-index:0;}
+  body::after{content:'';position:fixed;inset:0;
+    background-image:linear-gradient(rgba(255,255,255,.015) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.015) 1px,transparent 1px);
+    background-size:60px 60px;pointer-events:none;z-index:0;}
 
-  /* ── Header ── */
-  header {
-    position: sticky; top: 0; z-index: 100;
-    background: rgba(10,10,15,0.92); backdrop-filter: blur(12px);
-    border-bottom: 1px solid var(--border);
-    padding: 14px 16px; display: flex; align-items: center; justify-content: space-between;
-  }
-  .logo { font-size: 20px; font-weight: 800; letter-spacing: -0.5px; display: flex; align-items: center; gap: 8px; }
-  .logo-icon {
-    width: 28px; height: 28px;
-    background: linear-gradient(135deg, var(--claude-color), var(--gemini-color));
-    border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px;
-  }
-  .header-actions { display: flex; gap: 8px; }
-  .hdr-btn {
-    background: none; border: 1px solid var(--border); color: var(--muted);
-    padding: 7px 12px; border-radius: 8px;
-    font-family: 'Syne', sans-serif; font-size: 13px; cursor: pointer; transition: all 0.2s;
-  }
-  .hdr-btn:hover { border-color: var(--muted); color: var(--text); }
-  .hdr-btn.active { border-color: rgba(16,163,127,0.4); color: var(--gpt-color); }
+  /* Header */
+  header{position:sticky;top:0;z-index:100;background:rgba(10,10,15,.92);
+    backdrop-filter:blur(12px);border-bottom:1px solid var(--border);
+    padding:14px 16px;display:flex;align-items:center;justify-content:space-between;}
+  .logo{font-size:20px;font-weight:800;letter-spacing:-.5px;display:flex;align-items:center;gap:8px;cursor:pointer;}
+  .logo-icon{width:28px;height:28px;background:linear-gradient(135deg,#8b6914,#2a5298);
+    border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;}
+  .header-actions{display:flex;gap:8px;}
+  .hdr-btn{background:none;border:1px solid var(--border);color:var(--muted);
+    padding:7px 12px;border-radius:8px;font-family:'Syne',sans-serif;font-size:13px;
+    cursor:pointer;transition:all .2s;}
+  .hdr-btn:hover{border-color:var(--muted);color:var(--text);}
+  .hdr-btn.active{border-color:rgba(16,163,127,.4);color:var(--gpt-color);}
+  .hdr-btn.hist{font-size:16px;padding:7px 10px;}
 
-  /* ── Main ── */
-  main { flex: 1; display: flex; flex-direction: column; padding: 16px; gap: 16px; position: relative; z-index: 1; }
+  /* Slide-out drawer */
+  .drawer-overlay{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.6);
+    backdrop-filter:blur(3px);transition:opacity .25s;}
+  .drawer-overlay.hidden{opacity:0;pointer-events:none;}
+  .drawer{position:fixed;top:0;left:0;bottom:0;width:min(320px,88vw);
+    background:#070a10;border-right:1px solid var(--border);
+    display:flex;flex-direction:column;z-index:301;
+    transform:translateX(-100%);transition:transform .28s ease;}
+  .drawer.open{transform:translateX(0);}
+  .drawer-header{padding:20px 16px 14px;border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+  .drawer-title{font-size:17px;font-weight:800;letter-spacing:-.3px;}
+  .drawer-close{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0;line-height:1;}
+  .drawer-new{width:100%;margin:12px 0 0;padding:11px;background:none;
+    border:1px dashed var(--border);border-radius:10px;color:var(--muted);
+    font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;transition:all .2s;}
+  .drawer-new:hover{border-color:var(--claude-color);color:var(--claude-color);}
+  .drawer-list{flex:1;overflow-y:auto;padding:8px;}
+  .drawer-item{padding:12px 14px;border-radius:10px;cursor:pointer;
+    border:1px solid transparent;transition:all .2s;margin-bottom:4px;position:relative;}
+  .drawer-item:hover{background:var(--surface);border-color:var(--border);}
+  .drawer-item.active-conv{background:var(--surface);border-color:rgba(232,160,32,.3);}
+  .drawer-item-title{font-size:13px;font-weight:600;line-height:1.3;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:24px;}
+  .drawer-item-meta{font-size:11px;color:var(--muted);margin-top:3px;
+    font-family:'JetBrains Mono',monospace;}
+  .drawer-item-del{position:absolute;right:10px;top:50%;transform:translateY(-50%);
+    background:none;border:none;color:var(--muted);font-size:15px;cursor:pointer;
+    opacity:0;transition:opacity .2s;padding:4px;}
+  .drawer-item:hover .drawer-item-del{opacity:1;}
+  .drawer-footer{padding:12px 16px;border-top:1px solid var(--border);flex-shrink:0;}
+  .storage-bar-wrap{display:flex;align-items:center;gap:8px;font-size:11px;color:var(--muted);}
+  .storage-bar-bg{flex:1;height:4px;background:var(--border);border-radius:2px;}
+  .storage-bar-fill{height:4px;background:var(--claude-color);border-radius:2px;transition:width .3s;}
+  .storage-bar-fill.warn{background:#e8a020;}
+  .storage-bar-fill.danger{background:#cc4444;}
+  .drawer-empty{text-align:center;padding:40px 20px;color:var(--muted);font-size:13px;line-height:1.6;}
 
-  /* ── Welcome ── */
-  .welcome {
-    flex: 1; display: flex; flex-direction: column;
-    align-items: center; justify-content: center; text-align: center; padding: 28px 20px; gap: 14px;
-  }
-  .welcome h2 { font-size: 25px; font-weight: 800; line-height: 1.2; }
-  .welcome p { color: var(--muted); font-size: 14px; line-height: 1.6; max-width: 300px; }
-  .ai-badges { display: flex; gap: 7px; flex-wrap: wrap; justify-content: center; margin-top: 2px; }
-  .badge { padding: 5px 11px; border-radius: 20px; font-size: 11px; font-weight: 600; font-family: 'JetBrains Mono', monospace; }
-  .badge-claude   { background: rgba(232,160,32,0.15); color: var(--claude-color);   border: 1px solid rgba(232,160,32,0.3); }
-  .badge-gemini   { background: rgba(66,133,244,0.15); color: var(--gemini-color);   border: 1px solid rgba(66,133,244,0.3); }
-  .badge-gpt      { background: rgba(16,163,127,0.15); color: var(--gpt-color);      border: 1px solid rgba(16,163,127,0.3); }
-  .badge-grok     { background: rgba(204,68,68,0.15);  color: var(--grok-color);     border: 1px solid rgba(204,68,68,0.3); }
-  .badge-deepseek { background: rgba(124,92,191,0.15); color: var(--deepseek-color); border: 1px solid rgba(124,92,191,0.3); }
+  /* Main */
+  main{flex:1;display:flex;flex-direction:column;padding:16px;gap:16px;position:relative;z-index:1;}
 
-  .key-status {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 14px; width: 100%; max-width: 300px;
-    display: flex; flex-direction: column; gap: 8px;
-  }
-  .key-status-title { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
-  .key-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
-  .key-row-name { font-weight: 600; }
-  .key-row-name.claude   { color: var(--claude-color); }
-  .key-row-name.gemini   { color: var(--gemini-color); }
-  .key-row-name.gpt      { color: var(--gpt-color); }
-  .key-row-name.grok     { color: var(--grok-color); }
-  .key-row-name.deepseek { color: var(--deepseek-color); }
-  .dot-set   { font-size: 11px; color: #4caf7d; }
-  .dot-unset { font-size: 11px; color: var(--muted); }
+  /* Welcome */
+  .welcome{flex:1;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:28px 20px;gap:14px;}
+  .welcome h2{font-size:25px;font-weight:800;line-height:1.2;}
+  .welcome p{color:var(--muted);font-size:14px;line-height:1.6;max-width:300px;}
+  .ai-badges{display:flex;gap:7px;flex-wrap:wrap;justify-content:center;margin-top:2px;}
+  .badge{padding:5px 11px;border-radius:20px;font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;}
+  .badge-claude  {background:rgba(232,160,32,.15);color:var(--claude-color);  border:1px solid rgba(232,160,32,.3);}
+  .badge-gemini  {background:rgba(66,133,244,.15); color:var(--gemini-color);  border:1px solid rgba(66,133,244,.3);}
+  .badge-gpt     {background:rgba(16,163,127,.15); color:var(--gpt-color);     border:1px solid rgba(16,163,127,.3);}
+  .badge-grok    {background:rgba(204,68,68,.15);  color:var(--grok-color);    border:1px solid rgba(204,68,68,.3);}
+  .badge-deepseek{background:rgba(124,92,191,.15); color:var(--deepseek-color);border:1px solid rgba(124,92,191,.3);}
+  .key-status{background:var(--surface);border:1px solid var(--border);
+    border-radius:12px;padding:14px;width:100%;max-width:300px;display:flex;flex-direction:column;gap:8px;}
+  .key-status-title{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted);
+    text-transform:uppercase;letter-spacing:1px;margin-bottom:2px;}
+  .key-row{display:flex;align-items:center;justify-content:space-between;font-size:13px;}
+  .key-row-name{font-weight:600;}
+  .key-row-name.claude  {color:var(--claude-color);}
+  .key-row-name.gemini  {color:var(--gemini-color);}
+  .key-row-name.gpt     {color:var(--gpt-color);}
+  .key-row-name.grok    {color:var(--grok-color);}
+  .key-row-name.deepseek{color:var(--deepseek-color);}
+  .dot-set  {font-size:11px;color:#4caf7d;}
+  .dot-unset{font-size:11px;color:var(--muted);}
 
-  /* ── Conversation rounds ── */
-  .conversations { display: flex; flex-direction: column; gap: 20px; }
-  .round { display: flex; flex-direction: column; gap: 10px; }
-  .round-label { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 2px; }
-  .user-bubble {
-    align-self: flex-end; background: var(--surface); border: 1px solid var(--border);
-    padding: 12px 16px; border-radius: var(--radius) var(--radius) 4px var(--radius);
-    font-size: 15px; line-height: 1.5; max-width: 85%;
-  }
+  /* Conversation title bar */
+  .conv-title-bar{display:flex;align-items:center;gap:8px;padding:2px 0 4px;}
+  .conv-title-text{font-size:13px;font-weight:600;color:var(--muted);
+    flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .conv-title-text.named{color:var(--text);}
 
-  /* ── Tabbed response viewer ── */
-  .tabbed-viewer {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); overflow: hidden;
-  }
+  /* Rounds */
+  .conversations{display:flex;flex-direction:column;gap:20px;}
+  .round{display:flex;flex-direction:column;gap:10px;}
+  .round-label{font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted);
+    text-transform:uppercase;letter-spacing:1px;padding:0 2px;}
+  .user-bubble{align-self:flex-end;background:var(--surface);border:1px solid var(--border);
+    padding:12px 16px;border-radius:var(--radius) var(--radius) 4px var(--radius);
+    font-size:15px;line-height:1.5;max-width:85%;}
 
-  /* AI selector tabs */
-  .ai-tabs {
-    display: flex; overflow-x: auto; border-bottom: 1px solid var(--border);
-    scrollbar-width: none;
-  }
-  .ai-tabs::-webkit-scrollbar { display: none; }
-  .ai-tab {
-    flex-shrink: 0; padding: 10px 14px;
-    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
-    cursor: pointer; border: none; background: none;
-    color: var(--muted); border-bottom: 2px solid transparent;
-    transition: all 0.2s; letter-spacing: 0.3px;
-  }
-  .ai-tab.active-claude   { color: var(--claude-color);   border-bottom-color: var(--claude-color); }
-  .ai-tab.active-gemini   { color: var(--gemini-color);   border-bottom-color: var(--gemini-color); }
-  .ai-tab.active-gpt      { color: var(--gpt-color);      border-bottom-color: var(--gpt-color); }
-  .ai-tab.active-grok     { color: var(--grok-color);     border-bottom-color: var(--grok-color); }
-  .ai-tab.active-deepseek { color: var(--deepseek-color); border-bottom-color: var(--deepseek-color); }
+  /* Tabbed viewer */
+  .tabbed-viewer{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
+  .ai-tabs{display:flex;overflow-x:auto;border-bottom:1px solid var(--border);scrollbar-width:none;}
+  .ai-tabs::-webkit-scrollbar{display:none;}
+  .ai-tab{flex-shrink:0;padding:10px 14px;font-family:'JetBrains Mono',monospace;
+    font-size:11px;font-weight:700;cursor:pointer;border:none;background:none;
+    color:var(--muted);border-bottom:2px solid transparent;transition:all .2s;letter-spacing:.3px;}
+  .ai-tab.active-claude  {color:var(--claude-color);  border-bottom-color:var(--claude-color);}
+  .ai-tab.active-gemini  {color:var(--gemini-color);  border-bottom-color:var(--gemini-color);}
+  .ai-tab.active-gpt     {color:var(--gpt-color);     border-bottom-color:var(--gpt-color);}
+  .ai-tab.active-grok    {color:var(--grok-color);    border-bottom-color:var(--grok-color);}
+  .ai-tab.active-deepseek{color:var(--deepseek-color);border-bottom-color:var(--deepseek-color);}
+  .view-toggle{display:flex;border-bottom:1px solid var(--border);}
+  .view-btn{flex:1;padding:8px 12px;background:none;border:none;
+    font-family:'Syne',sans-serif;font-size:12px;font-weight:600;
+    color:var(--muted);cursor:pointer;transition:all .2s;
+    border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .view-btn.active{color:var(--text);border-bottom-color:var(--text);}
+  .view-btn:disabled{opacity:.35;cursor:not-allowed;}
+  .response-pane{padding:14px;font-size:14px;line-height:1.65;
+    color:var(--text);white-space:pre-wrap;word-break:break-word;min-height:80px;}
+  .tabbed-viewer.claude  {border-left:3px solid var(--claude-color);}
+  .tabbed-viewer.gemini  {border-left:3px solid var(--gemini-color);}
+  .tabbed-viewer.gpt     {border-left:3px solid var(--gpt-color);}
+  .tabbed-viewer.grok    {border-left:3px solid var(--grok-color);}
+  .tabbed-viewer.deepseek{border-left:3px solid var(--deepseek-color);}
 
-  /* View toggle: First take / Reconsidered */
-  .view-toggle {
-    display: flex; border-bottom: 1px solid var(--border);
-  }
-  .view-btn {
-    flex: 1; padding: 8px 12px; background: none; border: none;
-    font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
-    color: var(--muted); cursor: pointer; transition: all 0.2s;
-    border-bottom: 2px solid transparent; margin-bottom: -1px;
-  }
-  .view-btn.active { color: var(--text); border-bottom-color: var(--text); }
-  .view-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+  /* Loading */
+  .loading-dots{display:flex;gap:5px;padding:4px 0;}
+  .loading-dots span{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:pulse 1.2s infinite;}
+  .loading-dots span:nth-child(2){animation-delay:.2s;}
+  .loading-dots span:nth-child(3){animation-delay:.4s;}
+  @keyframes pulse{0%,80%,100%{opacity:.3;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
+  .error-text{color:#ff6b6b;font-size:13px;font-style:italic;}
 
-  /* Response pane */
-  .response-pane {
-    padding: 14px; font-size: 14px; line-height: 1.65;
-    color: var(--text); white-space: pre-wrap; word-break: break-word;
-    min-height: 80px;
-  }
+  /* Action row */
+  .action-row{background:var(--surface);border:1px solid var(--border);
+    border-radius:var(--radius);padding:14px;display:flex;flex-direction:column;gap:12px;}
+  .action-top{display:flex;align-items:center;justify-content:space-between;gap:10px;}
+  .synth-btn{flex:1;padding:11px 14px;
+    background:linear-gradient(135deg,rgba(224,64,251,.15),rgba(66,133,244,.15));
+    border:1px solid rgba(224,64,251,.35);border-radius:10px;color:var(--synth-color);
+    font-family:'Syne',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;}
+  .synth-btn:hover{background:linear-gradient(135deg,rgba(224,64,251,.25),rgba(66,133,244,.25));}
+  .synth-btn:disabled{opacity:.4;cursor:not-allowed;}
+  .synth-toggle{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer;flex-shrink:0;}
+  .toggle-track{width:36px;height:20px;border-radius:10px;background:var(--border);position:relative;transition:background .2s;flex-shrink:0;}
+  .toggle-track.on{background:rgba(224,64,251,.5);}
+  .toggle-thumb{width:14px;height:14px;border-radius:50%;background:var(--muted);position:absolute;top:3px;left:3px;transition:all .2s;}
+  .toggle-track.on .toggle-thumb{left:19px;background:var(--synth-color);}
+  .followup-label{font-size:12px;font-family:'JetBrains Mono',monospace;color:var(--muted);text-transform:uppercase;letter-spacing:1px;}
+  .ai-toggles{display:flex;gap:5px;flex-wrap:wrap;}
+  .ai-toggle{flex:1;min-width:52px;padding:8px 3px;border-radius:8px;
+    border:1px solid transparent;background:var(--input-bg);
+    font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:600;
+    cursor:pointer;transition:all .2s;color:var(--muted);text-align:center;}
+  .ai-toggle.active-claude  {background:rgba(232,160,32,.15);color:var(--claude-color);  border-color:rgba(232,160,32,.4);}
+  .ai-toggle.active-gemini  {background:rgba(66,133,244,.15); color:var(--gemini-color);  border-color:rgba(66,133,244,.4);}
+  .ai-toggle.active-gpt     {background:rgba(16,163,127,.15); color:var(--gpt-color);     border-color:rgba(16,163,127,.4);}
+  .ai-toggle.active-grok    {background:rgba(204,68,68,.15);  color:var(--grok-color);    border-color:rgba(204,68,68,.4);}
+  .ai-toggle.active-deepseek{background:rgba(124,92,191,.15); color:var(--deepseek-color);border-color:rgba(124,92,191,.4);}
 
-  /* Left-colour accent on active AI */
-  .tabbed-viewer.claude   { border-left: 3px solid var(--claude-color); }
-  .tabbed-viewer.gemini   { border-left: 3px solid var(--gemini-color); }
-  .tabbed-viewer.gpt      { border-left: 3px solid var(--gpt-color); }
-  .tabbed-viewer.grok     { border-left: 3px solid var(--grok-color); }
-  .tabbed-viewer.deepseek { border-left: 3px solid var(--deepseek-color); }
+  /* Input bar */
+  .input-bar{position:sticky;bottom:0;z-index:100;background:rgba(10,10,15,.95);
+    backdrop-filter:blur(12px);border-top:1px solid var(--border);
+    padding:12px 16px;padding-bottom:max(12px,env(safe-area-inset-bottom));}
+  .input-hint{font-size:11px;color:var(--muted);text-align:right;margin-bottom:6px;}
+  .input-wrap{display:flex;gap:10px;align-items:flex-end;}
+  textarea{flex:1;background:var(--input-bg);border:1px solid var(--border);
+    border-radius:12px;padding:12px 14px;color:var(--text);
+    font-family:'Syne',sans-serif;font-size:16px;resize:none;
+    min-height:48px;max-height:160px;outline:none;transition:border-color .2s;line-height:1.4;}
+  textarea:focus{border-color:rgba(232,160,32,.5);}
+  textarea::placeholder{color:var(--muted);}
+  .send-btn{width:48px;height:48px;border-radius:12px;border:none;
+    background:linear-gradient(135deg,#8b6914,#7055aa);color:#fff;font-size:20px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+  .send-btn:hover{background:#a07820;transform:scale(1.05);}
+  .send-btn:disabled{background:var(--border);color:var(--muted);transform:none;cursor:not-allowed;}
 
-  /* Loading dots */
-  .loading-dots { display: flex; gap: 5px; padding: 4px 0; }
-  .loading-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: pulse 1.2s infinite; }
-  .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
-  .loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-  @keyframes pulse { 0%,80%,100%{opacity:.3;transform:scale(.8)} 40%{opacity:1;transform:scale(1)} }
-  .error-text { color: #ff6b6b; font-size: 13px; font-style: italic; }
-
-  /* ── Action row (Synthesise + toggles) ── */
-  .action-row {
-    background: var(--surface); border: 1px solid var(--border);
-    border-radius: var(--radius); padding: 14px;
-    display: flex; flex-direction: column; gap: 12px;
-  }
-  .action-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-
-  .synth-btn {
-    flex: 1; padding: 11px 14px;
-    background: linear-gradient(135deg, rgba(224,64,251,0.15), rgba(66,133,244,0.15));
-    border: 1px solid rgba(224,64,251,0.35);
-    border-radius: 10px; color: var(--synth-color);
-    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
-    cursor: pointer; transition: all 0.2s; text-align: center;
-  }
-  .synth-btn:hover { background: linear-gradient(135deg, rgba(224,64,251,0.25), rgba(66,133,244,0.25)); }
-  .synth-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-  .synth-toggle {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 12px; color: var(--muted); cursor: pointer; flex-shrink: 0;
-  }
-  .toggle-track {
-    width: 36px; height: 20px; border-radius: 10px;
-    background: var(--border); position: relative; transition: background 0.2s; flex-shrink: 0;
-  }
-  .toggle-track.on { background: rgba(224,64,251,0.5); }
-  .toggle-thumb {
-    width: 14px; height: 14px; border-radius: 50%; background: var(--muted);
-    position: absolute; top: 3px; left: 3px; transition: all 0.2s;
-  }
-  .toggle-track.on .toggle-thumb { left: 19px; background: var(--synth-color); }
-
-  .followup-label { font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
-  .ai-toggles { display: flex; gap: 5px; flex-wrap: wrap; }
-  .ai-toggle {
-    flex: 1; min-width: 52px; padding: 8px 3px; border-radius: 8px;
-    border: 1px solid transparent; background: var(--input-bg);
-    font-family: 'JetBrains Mono', monospace; font-size: 9px; font-weight: 600;
-    cursor: pointer; transition: all 0.2s; color: var(--muted); text-align: center;
-  }
-  .ai-toggle.active-claude   { background: rgba(232,160,32,0.15); color: var(--claude-color);   border-color: rgba(232,160,32,0.4); }
-  .ai-toggle.active-gemini   { background: rgba(66,133,244,0.15); color: var(--gemini-color);   border-color: rgba(66,133,244,0.4); }
-  .ai-toggle.active-gpt      { background: rgba(16,163,127,0.15); color: var(--gpt-color);      border-color: rgba(16,163,127,0.4); }
-  .ai-toggle.active-grok     { background: rgba(204,68,68,0.15);  color: var(--grok-color);     border-color: rgba(204,68,68,0.4); }
-  .ai-toggle.active-deepseek { background: rgba(124,92,191,0.15); color: var(--deepseek-color); border-color: rgba(124,92,191,0.4); }
-
-  /* ── Input bar ── */
-  .input-bar {
-    position: sticky; bottom: 0; z-index: 100;
-    background: rgba(10,10,15,0.95); backdrop-filter: blur(12px);
-    border-top: 1px solid var(--border);
-    padding: 12px 16px; padding-bottom: max(12px, env(safe-area-inset-bottom));
-  }
-  .input-hint { font-size: 11px; color: var(--muted); text-align: right; margin-bottom: 6px; }
-  .input-wrap { display: flex; gap: 10px; align-items: flex-end; }
-  textarea {
-    flex: 1; background: var(--input-bg); border: 1px solid var(--border);
-    border-radius: 12px; padding: 12px 14px; color: var(--text);
-    font-family: 'Syne', sans-serif; font-size: 16px; resize: none;
-    min-height: 48px; max-height: 160px; outline: none; transition: border-color 0.2s; line-height: 1.4;
-  }
-  textarea:focus { border-color: rgba(232,160,32,0.5); }
-  textarea::placeholder { color: var(--muted); }
-  .send-btn {
-    width: 48px; height: 48px; border-radius: 12px; border: none;
-    background: var(--claude-color); color: #000; font-size: 20px; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; transition: all 0.2s; flex-shrink: 0;
-  }
-  .send-btn:hover { background: #f0b030; transform: scale(1.05); }
-  .send-btn:disabled { background: var(--border); color: var(--muted); transform: none; cursor: not-allowed; }
-
-  /* ── Settings ── */
-  .overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: flex; align-items: flex-end; }
-  .overlay.hidden { display: none; }
-  .settings-panel {
-    background: var(--surface); border-top: 1px solid var(--border);
-    border-radius: 20px 20px 0 0;
-    padding: 24px 20px; padding-bottom: max(24px, env(safe-area-inset-bottom));
-    width: 100%; display: flex; flex-direction: column; gap: 16px;
-    animation: slideUp 0.3s ease; max-height: 92vh; overflow-y: auto;
-  }
-  @keyframes slideUp { from{transform:translateY(100%)} to{transform:translateY(0)} }
-  .settings-title { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; display: flex; align-items: center; justify-content: space-between; }
-  .close-btn { background: none; border: none; color: var(--muted); font-size: 22px; cursor: pointer; padding: 0; line-height: 1; }
-  .settings-subtitle { font-size: 13px; color: var(--muted); margin-top: -8px; line-height: 1.5; }
-  .save-notice { background: rgba(16,163,127,0.08); border: 1px solid rgba(16,163,127,0.25); border-radius: 10px; padding: 11px 14px; font-size: 12px; color: #4caf7d; line-height: 1.5; }
-  .claude-note { background: rgba(232,160,32,0.08); border: 1px solid rgba(232,160,32,0.2); border-radius: 10px; padding: 12px; font-size: 12px; color: var(--muted); line-height: 1.5; }
-  .key-field { display: flex; flex-direction: column; gap: 7px; }
-  .key-field label { font-size: 12px; font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between; }
-  .key-field.gemini      label { color: var(--gemini-color); }
-  .key-field.gpt         label { color: var(--gpt-color); }
-  .key-field.grok        label { color: var(--grok-color); }
-  .key-field.deepseek    label { color: var(--deepseek-color); }
-  .key-field.claude-proxy label { color: var(--claude-color); }
-  .saved-tag { font-size: 10px; font-weight: 400; letter-spacing: 0; color: #4caf7d; font-family: 'JetBrains Mono', monospace; }
-  .key-wrap { position: relative; }
-  .key-field input {
-    background: var(--input-bg); border: 1px solid var(--border);
-    border-radius: 10px; padding: 11px 44px 11px 14px; color: var(--text);
-    font-family: 'JetBrains Mono', monospace; font-size: 16px; outline: none;
-    transition: border-color 0.2s; width: 100%;
-  }
-  .key-field input:focus { border-color: rgba(255,255,255,0.3); }
-  .key-field input::placeholder { color: var(--muted); }
-  .key-field input.filled { border-color: rgba(76,175,125,0.35); }
-  .vis-btn { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); cursor: pointer; font-size: 15px; padding: 0; }
-  .key-note { font-size: 11px; color: var(--muted); line-height: 1.4; }
-  .key-note .free { color: #4caf7d; font-weight: 600; }
-  .key-note .paid { color: #e8a020; font-weight: 600; }
-  .key-link { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
-  .key-link:hover { color: var(--text); }
-  .settings-actions { display: flex; gap: 10px; }
-  .btn-save { flex: 1; padding: 14px; background: var(--claude-color); color: #000; border: none; border-radius: 12px; font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; transition: all 0.2s; }
-  .btn-save:hover { background: #f0b030; }
-  .btn-cancel { padding: 14px 20px; background: none; color: var(--muted); border: 1px solid var(--border); border-radius: 12px; font-family: 'Syne', sans-serif; font-size: 15px; cursor: pointer; transition: all 0.2s; }
-  .btn-cancel:hover { color: var(--text); }
-  .btn-clear { width: 100%; padding: 11px; background: none; color: #ff6b6b; border: 1px solid rgba(255,107,107,0.2); border-radius: 10px; font-family: 'Syne', sans-serif; font-size: 13px; cursor: pointer; transition: all 0.2s; }
-  .btn-clear:hover { border-color: rgba(255,107,107,0.5); }
-  #bottom { height: 1px; }
+  /* Settings overlay */
+  .overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.7);
+    backdrop-filter:blur(4px);display:flex;align-items:flex-end;}
+  .overlay.hidden{display:none;}
+  .settings-panel{background:var(--surface);border-top:1px solid var(--border);
+    border-radius:20px 20px 0 0;padding:24px 20px;
+    padding-bottom:max(24px,env(safe-area-inset-bottom));
+    width:100%;display:flex;flex-direction:column;gap:16px;
+    animation:slideUp .3s ease;max-height:92vh;overflow-y:auto;}
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .settings-title{font-size:18px;font-weight:800;letter-spacing:-.3px;
+    display:flex;align-items:center;justify-content:space-between;}
+  .close-btn{background:none;border:none;color:var(--muted);font-size:22px;cursor:pointer;padding:0;line-height:1;}
+  .settings-subtitle{font-size:13px;color:var(--muted);margin-top:-8px;line-height:1.5;}
+  .save-notice{background:rgba(16,163,127,.08);border:1px solid rgba(16,163,127,.25);
+    border-radius:10px;padding:11px 14px;font-size:12px;color:#4caf7d;line-height:1.5;}
+  .claude-note{background:rgba(232,160,32,.08);border:1px solid rgba(232,160,32,.2);
+    border-radius:10px;padding:12px;font-size:12px;color:var(--muted);line-height:1.5;}
+  .key-field{display:flex;flex-direction:column;gap:7px;}
+  .key-field label{font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:600;
+    letter-spacing:.5px;display:flex;align-items:center;justify-content:space-between;}
+  .key-field.gemini      label{color:var(--gemini-color);}
+  .key-field.gpt         label{color:var(--gpt-color);}
+  .key-field.grok        label{color:var(--grok-color);}
+  .key-field.deepseek    label{color:var(--deepseek-color);}
+  .key-field.claude-proxy label{color:var(--claude-color);}
+  .saved-tag{font-size:10px;font-weight:400;letter-spacing:0;color:#4caf7d;font-family:'JetBrains Mono',monospace;}
+  .key-wrap{position:relative;}
+  .key-field input{background:var(--input-bg);border:1px solid var(--border);
+    border-radius:10px;padding:11px 44px 11px 14px;color:var(--text);
+    font-family:'JetBrains Mono',monospace;font-size:16px;outline:none;
+    transition:border-color .2s;width:100%;}
+  .key-field input:focus{border-color:rgba(255,255,255,.3);}
+  .key-field input::placeholder{color:var(--muted);}
+  .key-field input.filled{border-color:rgba(76,175,125,.35);}
+  .vis-btn{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+    background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;padding:0;}
+  .key-note{font-size:11px;color:var(--muted);line-height:1.4;}
+  .key-note .free{color:#4caf7d;font-weight:600;}
+  .key-note .paid{color:#e8a020;font-weight:600;}
+  .key-link{color:var(--muted);text-decoration:underline;text-underline-offset:2px;}
+  .key-link:hover{color:var(--text);}
+  .settings-actions{display:flex;gap:10px;}
+  .btn-save{flex:1;padding:14px;background:var(--claude-color);color:#000;border:none;
+    border-radius:12px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;}
+  .btn-save:hover{background:#f0b030;}
+  .btn-cancel{padding:14px 20px;background:none;color:var(--muted);border:1px solid var(--border);
+    border-radius:12px;font-family:'Syne',sans-serif;font-size:15px;cursor:pointer;transition:all .2s;}
+  .btn-cancel:hover{color:var(--text);}
+  .btn-clear{width:100%;padding:11px;background:none;color:#ff6b6b;
+    border:1px solid rgba(255,107,107,.2);border-radius:10px;
+    font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;transition:all .2s;}
+  .btn-clear:hover{border-color:rgba(255,107,107,.5);}
+  #bottom{height:1px;}
 </style>
 </head>
 <body>
 
+<!-- Drawer overlay -->
+<div class="drawer-overlay hidden" id="drawerOverlay" onclick="closeDrawer()"></div>
+
+<!-- Slide-out history drawer -->
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <div class="drawer-title">Sessions</div>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div style="padding:0 8px;">
+    <button class="drawer-new" onclick="newChatFromDrawer()">+ New session</button>
+  </div>
+  <div class="drawer-list" id="drawerList"></div>
+  <div class="drawer-footer">
+    <div class="storage-bar-wrap">
+      <span id="storageLabel">Storage</span>
+      <div class="storage-bar-bg"><div class="storage-bar-fill" id="storageBar" style="width:0%"></div></div>
+      <span id="storagePct">0%</span>
+    </div>
+  </div>
+</div>
+
 <header>
-  <div class="logo"><div class="logo-icon">⚔</div>AI Arena</div>
+  <div class="logo" onclick="openDrawer()">
+    <div class="logo-icon">⬡</div>Council of Advisors
+  </div>
   <div class="header-actions">
-    <button class="hdr-btn" onclick="newChat()">↺ New</button>
+    <button class="hdr-btn hist" onclick="openDrawer()" title="Conversations">☰</button>
+    <button class="hdr-btn" onclick="newChat()">↺ New session</button>
     <button class="hdr-btn" id="settingsBtn" onclick="openSettings()">⚙ Keys</button>
   </div>
 </header>
 
 <main id="main">
   <div class="welcome" id="welcome">
-    <h2>Ask all five.<br>Compare everything.</h2>
-    <p>One question. Five AI responses simultaneously — then keep the conversation going with any or all of them.</p>
+    <h2>Consult your<br>Council of Advisors.</h2>
+    <div style="display:flex;align-items:center;gap:10px;width:100%;max-width:260px;">
+      <div style="flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(139,105,20,.4));"></div>
+      <span style="color:rgba(139,105,20,.6);font-size:14px;">⬡</span>
+      <div style="flex:1;height:1px;background:linear-gradient(90deg,rgba(139,105,20,.4),transparent);"></div>
+    </div>
+    <p>Put your question to up to five advisors simultaneously. Each gives their perspective — then they deliberate together.</p>
     <div class="ai-badges">
       <span class="badge badge-claude">Claude</span>
       <span class="badge badge-gemini">Gemini</span>
@@ -316,65 +320,60 @@
       <div class="key-row"><span class="key-row-name deepseek">DeepSeek</span><span id="stDeepseek" class="dot-unset">✗ Not set</span></div>
     </div>
   </div>
+  <div id="convTitleBar" style="display:none;">
+    <div class="conv-title-bar">
+      <span class="conv-title-text" id="convTitleText">Untitled session</span>
+    </div>
+  </div>
   <div class="conversations" id="conversations"></div>
   <div id="bottom"></div>
 </main>
 
 <div class="input-bar">
-  <div class="input-hint">↵ new line &nbsp;·&nbsp; tap ↑ to send</div>
+  <div class="input-hint">↵ new line &nbsp;·&nbsp; tap ↑ to consult</div>
   <div class="input-wrap">
-    <textarea id="inputBox" placeholder="Ask anything…" rows="1" oninput="autoResize(this)"></textarea>
-    <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
+    <textarea id="inputBox" placeholder="Put your question to the council…" rows="1" oninput="autoResize(this)"></textarea>
+    <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Consult the council">↑</button>
   </div>
 </div>
 
 <!-- Settings overlay -->
 <div class="overlay hidden" id="overlay" onclick="overlayClick(event)">
   <div class="settings-panel">
-    <div class="settings-title">
-      API Keys
-      <button class="close-btn" onclick="closeSettings()">✕</button>
-    </div>
-    <div class="settings-subtitle">Saved to this browser only — here next time you open the app.</div>
-    <div class="save-notice">🔒 Stored locally on your device. Never sent anywhere except the respective AI provider.</div>
-
-    <div class="claude-note">✦ <strong style="color:var(--claude-color)">Claude</strong> needs a free proxy to work from a browser. <a href="https://developers.cloudflare.com/workers/get-started/guide/" target="_blank" class="key-link">Set up a Cloudflare Worker ↗</a> and paste its URL below.</div>
-
+    <div class="settings-title">Advisor Keys<button class="close-btn" onclick="closeSettings()">✕</button></div>
+    <div class="settings-subtitle">Saved to this browser — here next time you open the app.</div>
+    <div class="save-notice">🔒 Stored locally on your device only.</div>
+    <div class="claude-note">✦ <strong style="color:var(--claude-color)">Claude</strong> needs a Cloudflare Worker proxy.
+      <a href="https://developers.cloudflare.com/workers/get-started/guide/" target="_blank" class="key-link">Set one up ↗</a> and paste its URL below.</div>
     <div class="key-field claude-proxy">
       <label style="color:var(--claude-color)">CLAUDE PROXY URL <span class="saved-tag" id="svClaude"></span></label>
-      <div class="key-wrap">
-        <input type="text" id="claudeProxyKey" placeholder="https://your-worker.workers.dev" autocomplete="off" oninput="markFilled(this)">
-      </div>
-      <div class="key-note">Optional — without this Claude will show an error</div>
+      <div class="key-wrap"><input type="text" id="claudeProxyKey" placeholder="https://your-worker.workers.dev" autocomplete="off" oninput="markFilled(this)"></div>
+      <div class="key-note">Without this Claude will show an error</div>
     </div>
-
     <div class="key-field gemini">
       <label>GEMINI API KEY <span class="saved-tag" id="svGemini"></span></label>
       <div class="key-wrap">
         <input type="password" id="geminiKey" placeholder="AIza…" autocomplete="off" oninput="markFilled(this)">
         <button class="vis-btn" onclick="toggleVis('geminiKey',this)">👁</button>
       </div>
-      <div class="key-note"><span class="free">Free tier available</span> — <a href="https://aistudio.google.com/apikey" target="_blank" class="key-link">aistudio.google.com/apikey ↗</a></div>
+      <div class="key-note"><span class="free">Free tier</span> — <a href="https://aistudio.google.com/apikey" target="_blank" class="key-link">aistudio.google.com/apikey ↗</a></div>
     </div>
-
     <div class="key-field gpt">
       <label>OPENAI API KEY <span class="saved-tag" id="svGpt"></span></label>
       <div class="key-wrap">
         <input type="password" id="openaiKey" placeholder="sk-…" autocomplete="off" oninput="markFilled(this)">
         <button class="vis-btn" onclick="toggleVis('openaiKey',this)">👁</button>
       </div>
-      <div class="key-note"><span class="paid">Pay-as-you-go</span> ~$0.002/chat — <a href="https://platform.openai.com/api-keys" target="_blank" class="key-link">platform.openai.com/api-keys ↗</a></div>
+      <div class="key-note"><span class="paid">Pay-as-you-go</span> ~$0.002/chat — <a href="https://platform.openai.com/api-keys" target="_blank" class="key-link">platform.openai.com ↗</a></div>
     </div>
-
     <div class="key-field grok">
       <label>GROK (xAI) API KEY <span class="saved-tag" id="svGrok"></span></label>
       <div class="key-wrap">
         <input type="password" id="grokKey" placeholder="xai-…" autocomplete="off" oninput="markFilled(this)">
         <button class="vis-btn" onclick="toggleVis('grokKey',this)">👁</button>
       </div>
-      <div class="key-note"><span class="free">$25/month free credits</span> — <a href="https://console.x.ai" target="_blank" class="key-link">console.x.ai ↗</a></div>
+      <div class="key-note"><span class="free">$25/month free</span> — <a href="https://console.x.ai" target="_blank" class="key-link">console.x.ai ↗</a></div>
     </div>
-
     <div class="key-field deepseek">
       <label>DEEPSEEK API KEY <span class="saved-tag" id="svDeepseek"></span></label>
       <div class="key-wrap">
@@ -383,7 +382,6 @@
       </div>
       <div class="key-note"><span class="free">Free credits on signup</span> — <a href="https://platform.deepseek.com" target="_blank" class="key-link">platform.deepseek.com ↗</a></div>
     </div>
-
     <div class="settings-actions">
       <button class="btn-cancel" onclick="closeSettings()">Cancel</button>
       <button class="btn-save" onclick="saveSettings()">Save Keys</button>
@@ -393,464 +391,638 @@
 </div>
 
 <script>
-  // ── Storage ──
-  const SK = { gemini:'arena_key_gemini', gpt:'arena_key_gpt', grok:'arena_key_grok', deepseek:'arena_key_deepseek', claudeProxy:'arena_key_claude_proxy' };
-  let keys = { gemini:'', gpt:'', grok:'', deepseek:'', claudeProxy:'' };
-  let isLoading = false;
+// ═══════════════════════════════════════════════
+// STORAGE KEYS
+// ═══════════════════════════════════════════════
+const SK = {
+  gemini:'arena_key_gemini', gpt:'arena_key_gpt', grok:'arena_key_grok',
+  deepseek:'arena_key_deepseek', claudeProxy:'arena_key_claude_proxy'
+};
+const CONV_INDEX_KEY = 'arena_conv_index';   // [{id, title, date, aiList}]
+const CONV_DATA_KEY  = 'arena_conv_';        // + id => full conversation data
+const MAX_CONVS = 30;
 
-  // Per-AI conversation histories (for follow-ups)
-  const histories = { claude:[], gemini:[], gpt:[], grok:[], deepseek:[] };
+// ═══════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════
+let keys = { gemini:'', gpt:'', grok:'', deepseek:'', claudeProxy:'' };
+let isLoading = false;
+let histories  = { claude:[], gemini:[], gpt:[], grok:[], deepseek:[] };
+let lastResponses = {}, lastQuestion = '', reconsidered = {};
+let activeAIs  = { claude:true, gemini:true, gpt:true, grok:true, deepseek:true };
+let started = false, synthOnFollowup = false;
 
-  // Last round's initial responses (for cross-pollination)
-  let lastResponses = {};  // { ai: text }
-  let lastQuestion  = '';  // original question text
-  let reconsidered  = {};  // { ai: text } — reconsidered responses
+// Current conversation
+let currentConvId   = null;
+let currentConvTitle = null;
 
-  let activeAIs = { claude:true, gemini:true, gpt:true, grok:true, deepseek:true };
-  let started = false;
-  let synthOnFollowup = false; // toggle: apply synth to follow-ups too
+// Serialised rounds for save/restore
+// Each round: { question, targets, firstTexts:{ai:text}, reconsideredTexts:{ai:text} }
+let currentRounds = [];
 
-  // ── Key persistence ──
-  function loadKeys() {
-    for (const [ai,sk] of Object.entries(SK)) {
-      try { const v = localStorage.getItem(sk); if (v) keys[ai]=v; } catch(e) {}
-    }
-    refreshStatusUI();
+// ═══════════════════════════════════════════════
+// CONVERSATION PERSISTENCE
+// ═══════════════════════════════════════════════
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function loadConvIndex() {
+  try { return JSON.parse(localStorage.getItem(CONV_INDEX_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveConvIndex(index) {
+  try { localStorage.setItem(CONV_INDEX_KEY, JSON.stringify(index)); } catch(e) {}
+}
+
+function saveCurrentConv() {
+  if (!currentConvId || currentRounds.length === 0) return;
+  const data = {
+    id: currentConvId,
+    title: currentConvTitle,
+    date: Date.now(),
+    histories: JSON.parse(JSON.stringify(histories)),
+    activeAIs: {...activeAIs},
+    rounds: JSON.parse(JSON.stringify(currentRounds)),
+    aiList: Object.entries(activeAIs).filter(([,v])=>v).map(([k])=>k)
+  };
+  try {
+    localStorage.setItem(CONV_DATA_KEY + currentConvId, JSON.stringify(data));
+  } catch(e) {
+    // Storage full — remove oldest conv and retry
+    pruneOldestConv();
+    try { localStorage.setItem(CONV_DATA_KEY + currentConvId, JSON.stringify(data)); } catch(e2) {}
   }
 
-  function refreshStatusUI() {
-    const map = { gemini:'stGemini', gpt:'stGpt', grok:'stGrok', deepseek:'stDeepseek' };
-    for (const [ai,id] of Object.entries(map)) {
-      const el = document.getElementById(id); if(!el) continue;
-      if (keys[ai]) { el.textContent='✓ Saved'; el.className='dot-set'; }
-      else           { el.textContent='✗ Not set'; el.className='dot-unset'; }
-    }
-    const any = Object.values(keys).some(Boolean);
-    document.getElementById('settingsBtn').className = 'hdr-btn' + (any?' active':'');
+  // Update index
+  let index = loadConvIndex();
+  index = index.filter(c => c.id !== currentConvId);
+  index.unshift({ id: currentConvId, title: currentConvTitle || 'Untitled', date: Date.now(),
+    aiList: data.aiList, roundCount: currentRounds.length });
+  if (index.length > MAX_CONVS) {
+    const removed = index.splice(MAX_CONVS);
+    removed.forEach(c => { try { localStorage.removeItem(CONV_DATA_KEY + c.id); } catch(e){} });
   }
+  saveConvIndex(index);
+  updateStorageBar();
+}
 
-  // ── Settings panel ──
-  function openSettings() {
-    document.getElementById('claudeProxyKey').value = keys.claudeProxy;
-    document.getElementById('geminiKey').value      = keys.gemini;
-    document.getElementById('openaiKey').value      = keys.gpt;
-    document.getElementById('grokKey').value        = keys.grok;
-    document.getElementById('deepseekKey').value    = keys.deepseek;
-    ['claudeProxyKey','geminiKey','openaiKey','grokKey','deepseekKey'].forEach(id => markFilled(document.getElementById(id)));
-    document.getElementById('svClaude').textContent   = keys.claudeProxy ? '✓ saved' : '';
-    document.getElementById('svGemini').textContent   = keys.gemini      ? '✓ saved' : '';
-    document.getElementById('svGpt').textContent      = keys.gpt         ? '✓ saved' : '';
-    document.getElementById('svGrok').textContent     = keys.grok        ? '✓ saved' : '';
-    document.getElementById('svDeepseek').textContent = keys.deepseek    ? '✓ saved' : '';
-    document.getElementById('overlay').classList.remove('hidden');
-  }
-  function closeSettings() { document.getElementById('overlay').classList.add('hidden'); }
-  function overlayClick(e) { if(e.target.id==='overlay') closeSettings(); }
+function pruneOldestConv() {
+  const index = loadConvIndex();
+  if (index.length === 0) return;
+  const oldest = index[index.length - 1];
+  try { localStorage.removeItem(CONV_DATA_KEY + oldest.id); } catch(e) {}
+  index.pop();
+  saveConvIndex(index);
+}
 
-  function saveSettings() {
-    keys.claudeProxy = document.getElementById('claudeProxyKey').value.trim();
-    keys.gemini      = document.getElementById('geminiKey').value.trim();
-    keys.gpt         = document.getElementById('openaiKey').value.trim();
-    keys.grok        = document.getElementById('grokKey').value.trim();
-    keys.deepseek    = document.getElementById('deepseekKey').value.trim();
+function deleteConv(id) {
+  try { localStorage.removeItem(CONV_DATA_KEY + id); } catch(e) {}
+  let index = loadConvIndex();
+  index = index.filter(c => c.id !== id);
+  saveConvIndex(index);
+  if (currentConvId === id) newChat(true);
+  renderDrawer();
+  updateStorageBar();
+}
+
+async function autoNameConversation(question) {
+  // Use Claude proxy if available, otherwise just truncate the question
+  let title = question.length > 50 ? question.slice(0,47)+'…' : question;
+  if (keys.claudeProxy) {
     try {
-      for (const [ai,sk] of Object.entries(SK)) {
-        keys[ai] ? localStorage.setItem(sk, keys[ai]) : localStorage.removeItem(sk);
-      }
+      const t = await _claudeFetch([{role:'user',
+        content:'Give me a short title (4-6 words) for a council session that begins with this question. Reply with ONLY the title, no punctuation, no quotes:\n\n'+question}]);
+      if (t && t.length < 80 && !t.startsWith('⚠️')) title = t.trim();
     } catch(e) {}
-    refreshStatusUI(); closeSettings();
   }
+  return title;
+}
 
-  function clearAllKeys() {
-    if (!confirm('Remove all saved API keys from this browser?')) return;
-    keys = { gemini:'', gpt:'', grok:'', deepseek:'', claudeProxy:'' };
-    try { Object.values(SK).forEach(sk => localStorage.removeItem(sk)); } catch(e) {}
-    refreshStatusUI(); closeSettings();
+function updateConvTitleUI() {
+  const bar = document.getElementById('convTitleBar');
+  const el  = document.getElementById('convTitleText');
+  if (!started) { bar.style.display='none'; return; }
+  bar.style.display='block';
+  el.textContent = currentConvTitle || 'Untitled session';
+  el.className = 'conv-title-text' + (currentConvTitle ? ' named' : '');
+}
+
+// ═══════════════════════════════════════════════
+// DRAWER
+// ═══════════════════════════════════════════════
+function openDrawer() {
+  renderDrawer();
+  document.getElementById('drawer').classList.add('open');
+  document.getElementById('drawerOverlay').classList.remove('hidden');
+}
+function closeDrawer() {
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('drawerOverlay').classList.add('hidden');
+}
+
+function renderDrawer() {
+  const list = document.getElementById('drawerList');
+  const index = loadConvIndex();
+  list.innerHTML = '';
+  if (index.length === 0) {
+    list.innerHTML = '<div class="drawer-empty">No saved sessions yet.<br>Your sessions are saved automatically as you go.</div>';
+    return;
   }
-
-  function toggleVis(id,btn) {
-    const el=document.getElementById(id);
-    el.type = el.type==='password'?'text':'password';
-    btn.textContent = el.type==='password'?'👁':'🙈';
-  }
-  function markFilled(el) { el.classList.toggle('filled', el.value.length>0); }
-
-  // ── UI helpers ──
-  function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,160)+'px'; }
-  // Note: Enter key deliberately NOT wired to send — user uses ↑ button
-  function scrollToBottom() { setTimeout(()=>document.getElementById('bottom').scrollIntoView({behavior:'smooth'}),60); }
-
-  function newChat() {
-    if(started&&!confirm('Start a new conversation? Current chat will be cleared.')) return;
-    Object.keys(histories).forEach(k=>histories[k]=[]);
-    Object.keys(activeAIs).forEach(k=>activeAIs[k]=true);
-    lastResponses={}; lastQuestion=''; reconsidered={};
-    started=false;
-    document.getElementById('conversations').innerHTML='';
-    document.getElementById('welcome').style.display='flex';
-    refreshStatusUI();
-  }
-
-  // ── Main send ──
-  async function sendMessage() {
-    const input = document.getElementById('inputBox');
-    const text = input.value.trim();
-    if(!text||isLoading) return;
-
-    let targets = started
-      ? Object.entries(activeAIs).filter(([,v])=>v).map(([k])=>k)
-      : ['claude','gemini','gpt','grok','deepseek'];
-
-    // Silently skip AIs without keys
-    targets = targets.filter(ai => ai==='claude' ? !!keys.claudeProxy : !!keys[ai]);
-    if(targets.length===0) { openSettings(); return; }
-
-    isLoading=true; input.value=''; input.style.height='auto';
-    document.getElementById('sendBtn').disabled=true;
-
-    if(!started){ document.getElementById('welcome').style.display='none'; started=true; }
-
-    lastQuestion = text;
-    lastResponses = {};
-    reconsidered = {};
-
-    for(const ai of targets) histories[ai].push({role:'user',content:text});
-
-    const conv = document.getElementById('conversations');
-    const round = document.createElement('div'); round.className='round';
-    const rl=document.createElement('div'); rl.className='round-label';
-    rl.textContent='Round '+(conv.children.length+1); round.appendChild(rl);
-    const ub=document.createElement('div'); ub.className='user-bubble';
-    ub.textContent=text; round.appendChild(ub);
-
-    // Build tabbed viewer
-    const viewer = buildTabbedViewer(targets);
-    round.appendChild(viewer);
-    conv.appendChild(round); scrollToBottom();
-
-    // Fetch all in parallel
-    const responseTexts = {};
-    await Promise.all(targets.map(async ai => {
-      const text = await fetchAIText(ai);
-      responseTexts[ai] = text;
-      lastResponses[ai] = text;
-      // Push to history
-      if(text && !text.startsWith('⚠️')) {
-        histories[ai].push({role:'assistant',content:text});
-      }
-      // Update viewer pane
-      setViewerPane(viewer, ai, 'first', text);
-    }));
-
-    addActionRow(conv, targets, viewer);
-
-    isLoading=false;
-    document.getElementById('sendBtn').disabled=false;
-    scrollToBottom();
-  }
-
-  // ── Tabbed viewer ──
-  function buildTabbedViewer(targets) {
-    const names = {claude:'Claude',gemini:'Gemini',gpt:'ChatGPT',grok:'Grok',deepseek:'DeepSeek'};
-    let activeAI = targets[0];
-    let activeView = 'first'; // 'first' or 'reconsidered'
-
-    const viewer = document.createElement('div');
-    viewer.className = 'tabbed-viewer ' + activeAI;
-
-    // AI tab bar
-    const tabBar = document.createElement('div'); tabBar.className = 'ai-tabs';
-    targets.forEach(ai => {
-      const tab = document.createElement('button');
-      tab.className = 'ai-tab' + (ai===activeAI ? ' active-'+ai : '');
-      tab.textContent = names[ai];
-      tab.dataset.ai = ai;
-      tab.onclick = () => {
-        activeAI = ai;
-        // Update tab styles
-        tabBar.querySelectorAll('.ai-tab').forEach(t => t.className='ai-tab'+(t.dataset.ai===ai?' active-'+ai:''));
-        // Update viewer border colour
-        viewer.className = 'tabbed-viewer ' + ai;
-        // Update view toggle availability
-        updateViewToggle();
-        showPane();
-      };
-      tabBar.appendChild(tab);
-    });
-    viewer.appendChild(tabBar);
-
-    // First take / Reconsidered toggle
-    const viewToggle = document.createElement('div'); viewToggle.className = 'view-toggle';
-    const btnFirst = document.createElement('button'); btnFirst.className='view-btn active'; btnFirst.textContent='First take';
-    const btnRecon = document.createElement('button'); btnRecon.className='view-btn'; btnRecon.textContent='Reconsidered'; btnRecon.disabled=true;
-    btnFirst.onclick = () => { activeView='first'; btnFirst.className='view-btn active'; btnRecon.className='view-btn'; btnRecon.disabled=!reconsidered[activeAI]; showPane(); };
-    btnRecon.onclick = () => { activeView='reconsidered'; btnFirst.className='view-btn'; btnRecon.className='view-btn active'; showPane(); };
-    viewToggle.appendChild(btnFirst); viewToggle.appendChild(btnRecon);
-    viewer.appendChild(viewToggle);
-
-    // Response pane
-    const pane = document.createElement('div'); pane.className='response-pane';
-    pane.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
-    viewer.appendChild(pane);
-
-    // Store refs on viewer element for external access
-    viewer._targets = targets;
-    viewer._firstTexts = {};
-    viewer._reconsideredTexts = {};
-
-    function updateViewToggle() {
-      btnRecon.disabled = !viewer._reconsideredTexts[activeAI];
-    }
-
-    function showPane() {
-      const texts = activeView==='first' ? viewer._firstTexts : viewer._reconsideredTexts;
-      const t = texts[activeAI];
-      if(!t) {
-        pane.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
-      } else if(t==='loading') {
-        pane.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
-      } else {
-        pane.textContent = t;
-      }
-    }
-
-    viewer._showPane = showPane;
-    viewer._updateViewToggle = updateViewToggle;
-    viewer._activeAI = () => activeAI;
-    viewer._activeView = () => activeView;
-    viewer._btnRecon = btnRecon;
-
-    return viewer;
-  }
-
-  function setViewerPane(viewer, ai, view, text) {
-    if(view==='first') viewer._firstTexts[ai] = text;
-    else               viewer._reconsideredTexts[ai] = text;
-    // Only update pane if this AI+view is currently active
-    if(viewer._activeAI()===ai && viewer._activeView()===view) {
-      viewer._showPane();
-    }
-    viewer._updateViewToggle();
-  }
-
-  // ── Cross-pollination (reconsider) ──
-  async function runReconsider(conv, targets, viewer) {
-    // Disable synth button
-    const synthBtn = conv.querySelector('.synth-btn');
-    if(synthBtn) { synthBtn.disabled=true; synthBtn.textContent='⟳ Reconsidering…'; }
-
-    reconsidered = {};
-
-    await Promise.all(targets.map(async ai => {
-      // Show loading in reconsidered pane
-      setViewerPane(viewer, ai, 'reconsidered', 'loading');
-
-      // Build the other AIs' responses
-      const others = targets.filter(o => o!==ai && lastResponses[o] && !lastResponses[o].startsWith('⚠️'));
-      if(others.length===0) {
-        setViewerPane(viewer, ai, 'reconsidered', '(No other responses available to compare.)');
-        return;
-      }
-
-      const names = {claude:'Claude',gemini:'Gemini',gpt:'ChatGPT',grok:'Grok',deepseek:'DeepSeek'};
-      const othersText = others.map(o => `--- ${names[o]} said ---\n${lastResponses[o]}`).join('\n\n');
-      const prompt = `The original question was:\n"${lastQuestion}"\n\nYour initial response was:\n"${lastResponses[ai]}"\n\nHere is how the other AIs responded to the same question:\n\n${othersText}\n\nHaving read those other perspectives, please provide a reconsidered response to the original question. You may agree, disagree, synthesise, or add nuance — whatever you genuinely think is most helpful. Be concise.`;
-
-      const reconsideredText = await fetchAITextOneShot(ai, prompt);
-      reconsidered[ai] = reconsideredText;
-      setViewerPane(viewer, ai, 'reconsidered', reconsideredText);
-    }));
-
-    if(synthBtn) { synthBtn.disabled=true; synthBtn.textContent='✓ Done'; }
-  }
-
-  // ── Action row (synth button + AI toggles) ──
-  function addActionRow(conv, targets, viewer) {
-    const ex = conv.querySelector('.action-row'); if(ex) ex.remove();
-    const row = document.createElement('div'); row.className='action-row';
-
-    // Top: synth button + follow-up toggle
-    const top = document.createElement('div'); top.className='action-top';
-
-    const synthBtn = document.createElement('button');
-    synthBtn.className='synth-btn';
-    synthBtn.textContent='✦ Reconsider with peers';
-    synthBtn.onclick = () => runReconsider(conv, targets, viewer);
-    top.appendChild(synthBtn);
-
-    // Synth-on-followup toggle
-    const toggleWrap = document.createElement('label'); toggleWrap.className='synth-toggle';
-    const track = document.createElement('div'); track.className='toggle-track'+(synthOnFollowup?' on':'');
-    const thumb = document.createElement('div'); thumb.className='toggle-thumb';
-    track.appendChild(thumb);
-    const lbl = document.createElement('span'); lbl.textContent='All rounds';
-    toggleWrap.appendChild(track); toggleWrap.appendChild(lbl);
-    toggleWrap.onclick = () => {
-      synthOnFollowup = !synthOnFollowup;
-      track.className = 'toggle-track'+(synthOnFollowup?' on':'');
+  index.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'drawer-item' + (c.id === currentConvId ? ' active-conv' : '');
+    const d = new Date(c.date);
+    const dateStr = d.toLocaleDateString('en-GB',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    const aiStr = (c.aiList||[]).map(a=>({claude:'C',gemini:'G',gpt:'GP',grok:'Gr',deepseek:'DS'}[a]||a)).join('·');
+    item.innerHTML =
+      '<div class="drawer-item-title">'+escHtml(c.title||'Untitled')+'</div>'+
+      '<div class="drawer-item-meta">'+dateStr+' &nbsp;·&nbsp; '+c.roundCount+' consultation'+(c.roundCount!==1?'s':'')+' &nbsp;·&nbsp; '+aiStr+'</div>'+
+      '<button class="drawer-item-del" title="Delete">✕</button>';
+    item.querySelector('.drawer-item-del').onclick = (e) => {
+      e.stopPropagation();
+      if (confirm('Remove this session?')) deleteConv(c.id);
     };
-    top.appendChild(toggleWrap);
-    row.appendChild(top);
+    item.onclick = () => loadConv(c.id);
+    list.appendChild(item);
+  });
+}
 
-    // Continue with… toggles
-    const fl = document.createElement('div'); fl.className='followup-label'; fl.textContent='Continue with…'; row.appendChild(fl);
-    const wrap = document.createElement('div'); wrap.className='ai-toggles';
-    const allAIs=[{id:'claude',name:'Claude'},{id:'gemini',name:'Gemini'},{id:'gpt',name:'ChatGPT'},{id:'grok',name:'Grok'},{id:'deepseek',name:'DeepSeek'}];
-    for(const {id,name} of allAIs){
-      if(!histories[id].length) continue;
-      const btn=document.createElement('button');
-      btn.className='ai-toggle'+(activeAIs[id]?` active-${id}`:'');
-      btn.textContent=name;
-      btn.onclick=()=>toggleAI(id,btn);
-      wrap.appendChild(btn);
+function escHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function updateStorageBar() {
+  try {
+    let used = 0;
+    for (let k in localStorage) {
+      if (Object.prototype.hasOwnProperty.call(localStorage, k)) {
+        used += (localStorage[k].length + k.length) * 2;
+      }
     }
-    row.appendChild(wrap);
-    conv.appendChild(row);
-  }
+    const total = 5 * 1024 * 1024; // 5MB estimate
+    const pct = Math.min(100, Math.round(used / total * 100));
+    document.getElementById('storageBar').style.width = pct + '%';
+    document.getElementById('storageBar').className = 'storage-bar-fill' + (pct>80?' danger':pct>60?' warn':'');
+    document.getElementById('storagePct').textContent = pct + '%';
+    document.getElementById('storageLabel').textContent = 'Storage used';
+  } catch(e) {}
+}
 
-  function toggleAI(ai,btn) {
-    const active=Object.values(activeAIs).filter(Boolean).length;
-    if(activeAIs[ai]&&active<=1) return;
-    activeAIs[ai]=!activeAIs[ai];
-    btn.classList.toggle(`active-${ai}`,activeAIs[ai]);
-  }
+// ═══════════════════════════════════════════════
+// LOAD A SAVED CONVERSATION
+// ═══════════════════════════════════════════════
+function loadConv(id) {
+  closeDrawer();
+  let data;
+  try { data = JSON.parse(localStorage.getItem(CONV_DATA_KEY + id)); } catch(e) {}
+  if (!data) { alert('Could not load conversation.'); return; }
 
-  // ── AI fetch helpers ──
-  // fetchAIText: uses conversation history (for normal rounds)
-  async function fetchAIText(ai) {
-    try {
-      if(ai==='claude')   return await _claudeFetch(histories.claude.map(m=>({role:m.role,content:m.content})));
-      if(ai==='gemini')   return await _geminiFetch(histories.gemini);
-      if(ai==='gpt')      return await _gptFetch(histories.gpt.map(m=>({role:m.role,content:m.content})));
-      if(ai==='grok')     return await _grokFetch(histories.grok.map(m=>({role:m.role,content:m.content})));
-      if(ai==='deepseek') return await _deepseekFetch(histories.deepseek.map(m=>({role:m.role,content:m.content})));
-    } catch(e) { return '⚠️ Error: '+e.message; }
-    return '';
-  }
+  // Reset state
+  currentConvId    = data.id;
+  currentConvTitle = data.title;
+  histories        = data.histories || { claude:[], gemini:[], gpt:[], grok:[], deepseek:[] };
+  activeAIs        = data.activeAIs || { claude:true, gemini:true, gpt:true, grok:true, deepseek:true };
+  currentRounds    = data.rounds || [];
+  started          = true;
+  lastResponses = {}; lastQuestion = ''; reconsidered = {};
 
-  // fetchAITextOneShot: single prompt, no history (for reconsideration)
-  async function fetchAITextOneShot(ai, prompt) {
-    const msgs = [{role:'user',content:prompt}];
-    try {
-      if(ai==='claude')   return await _claudeFetch(msgs);
-      if(ai==='gemini')   return await _geminiFetch(msgs);
-      if(ai==='gpt')      return await _gptFetch(msgs);
-      if(ai==='grok')     return await _grokFetch(msgs);
-      if(ai==='deepseek') return await _deepseekFetch(msgs);
-    } catch(e) { return '⚠️ Error: '+e.message; }
-    return '';
-  }
+  // Clear and re-render UI
+  document.getElementById('welcome').style.display = 'none';
+  document.getElementById('conversations').innerHTML = '';
+  updateConvTitleUI();
 
-  function setCard(card,text,err=false) {
-    const b=card.querySelector('.ai-card-body');
-    if(!b) return;
-    if(err){ b.innerHTML='<span class="error-text">'+text+'</span>'; }
-    else   { b.textContent=text; }
-  }
+  const conv = document.getElementById('conversations');
 
-  // ── Raw fetchers (return text string or throw) ──
-  async function _claudeFetch(messages) {
-    const endpoint = keys.claudeProxy ? keys.claudeProxy.replace(/\/$/, '')+'/v1/messages' : null;
-    if(!endpoint) return '⚠️ Claude requires a proxy URL. Tap ⚙ Keys to set one up.';
-    const res = await fetch(endpoint, {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages})
+  currentRounds.forEach((round, ri) => {
+    const roundEl = document.createElement('div'); roundEl.className = 'round';
+    const rl = document.createElement('div'); rl.className = 'round-label';
+    rl.textContent = 'Consultation ' + (ri + 1); roundEl.appendChild(rl);
+    const ub = document.createElement('div'); ub.className = 'user-bubble';
+    ub.textContent = round.question; roundEl.appendChild(ub);
+
+    const targets = round.targets || [];
+    const viewer = buildTabbedViewer(targets);
+    targets.forEach(ai => {
+      if (round.firstTexts[ai])        setViewerPane(viewer, ai, 'first',        round.firstTexts[ai]);
+      if (round.reconsideredTexts && round.reconsideredTexts[ai])
+                                        setViewerPane(viewer, ai, 'reconsidered', round.reconsideredTexts[ai]);
     });
-    const d = await res.json();
-    if(d.error) throw new Error(d.error.message);
-    return d.content.map(b=>b.text||'').join('');
-  }
+    roundEl.appendChild(viewer);
+    conv.appendChild(roundEl);
 
-  const GEMINI_MODELS = ['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash','gemini-2.0-pro','gemini-1.5-flash','gemini-1.5-pro'];
-  let workingGeminiModel = null;
+    // Restore action row (last round only gets an active synth button)
+    const isLast = ri === currentRounds.length - 1;
+    addActionRow(conv, targets, viewer, isLast);
+  });
 
-  async function _geminiFetch(messages) {
-    const contents = messages.map(m => ({
-      role: m.role==='assistant'?'model':'user', parts:[{text:m.content}]
-    }));
-    const modelsToTry = workingGeminiModel ? [workingGeminiModel] : GEMINI_MODELS;
-    for(const model of modelsToTry){
-      const res = await fetch(
-        'https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+keys.gemini,
-        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents})}
-      );
-      const d = await res.json();
-      if(d.error){
-        const msg=d.error.message||'';
-        if(msg.includes('not found')||msg.includes('not supported')||msg.includes('no longer available')||msg.includes('deprecated')) continue;
-        throw new Error(msg);
-      }
-      workingGeminiModel=model;
-      return d.candidates?.[0]?.content?.parts?.[0]?.text||'(no response)';
-    }
-    throw new Error('All Gemini models unavailable. Google may have updated their API.');
-  }
+  scrollToBottom();
+}
 
-  const GPT_MODELS = ['gpt-5.4-mini','gpt-5.4','gpt-4.1-mini','gpt-4.1','gpt-4o-mini','gpt-4o'];
-  let workingGptModel = null;
+// ═══════════════════════════════════════════════
+// NEW CHAT
+// ═══════════════════════════════════════════════
+function newChatFromDrawer() { closeDrawer(); newChat(); }
 
-  async function _gptFetch(messages) {
-    const modelsToTry = workingGptModel ? [workingGptModel] : GPT_MODELS;
-    for(const model of modelsToTry){
-      const res = await fetch('https://api.openai.com/v1/chat/completions',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.gpt},
-        body:JSON.stringify({model,max_completion_tokens:1000,messages})
-      });
-      const d = await res.json();
-      if(d.error){
-        const msg=d.error.message||'';
-        if(msg.includes('does not exist')||msg.includes('deprecated')||msg.includes('not found')||msg.includes('invalid model')) continue;
-        throw new Error(msg);
-      }
-      workingGptModel=model;
-      return d.choices?.[0]?.message?.content||'(no response)';
-    }
-    throw new Error('All ChatGPT models unavailable. OpenAI may have updated their API.');
-  }
+function newChat(skipConfirm) {
+  if (!skipConfirm && started && !confirm('Start a new session?')) return;
+  histories    = { claude:[], gemini:[], gpt:[], grok:[], deepseek:[] };
+  activeAIs    = { claude:true, gemini:true, gpt:true, grok:true, deepseek:true };
+  lastResponses = {}; lastQuestion = ''; reconsidered = {};
+  currentRounds = []; currentConvId = null; currentConvTitle = null;
+  started = false;
+  document.getElementById('conversations').innerHTML = '';
+  document.getElementById('welcome').style.display = 'flex';
+  document.getElementById('convTitleBar').style.display = 'none';
+  refreshStatusUI();
+}
 
-  const GROK_MODELS = ['grok-4','grok-4.20','grok-3','grok-3-fast','grok-2'];
-  let workingGrokModel = null;
+// ═══════════════════════════════════════════════
+// SEND MESSAGE
+// ═══════════════════════════════════════════════
+async function sendMessage() {
+  const input = document.getElementById('inputBox');
+  const text  = input.value.trim();
+  if (!text || isLoading) return;
 
-  async function _grokFetch(messages) {
-    const modelsToTry = workingGrokModel ? [workingGrokModel] : GROK_MODELS;
-    for(const model of modelsToTry){
-      const res = await fetch('https://api.x.ai/v1/chat/completions',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.grok},
-        body:JSON.stringify({model,max_tokens:1000,messages})
-      });
-      const d = await res.json();
-      if(d.error){
-        const msg=d.error.message||'';
-        if(msg.includes('does not exist')||msg.includes('deprecated')||msg.includes('not found')||msg.includes('invalid model')||msg.includes('no longer supported')) continue;
-        throw new Error(msg);
-      }
-      workingGrokModel=model;
-      return d.choices?.[0]?.message?.content||'(no response)';
-    }
-    throw new Error('All Grok models unavailable. xAI may have updated their API.');
-  }
+  let targets = started
+    ? Object.entries(activeAIs).filter(([,v])=>v).map(([k])=>k)
+    : ['claude','gemini','gpt','grok','deepseek'];
 
-  async function _deepseekFetch(messages) {
-    const res = await fetch('https://api.deepseek.com/v1/chat/completions',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.deepseek},
-      body:JSON.stringify({model:'deepseek-chat',max_tokens:1000,messages})
+  targets = targets.filter(ai => ai==='claude' ? !!keys.claudeProxy : !!keys[ai]);
+  if (targets.length === 0) { openSettings(); return; }
+
+  isLoading = true;
+  input.value = ''; input.style.height = 'auto';
+  document.getElementById('sendBtn').disabled = true;
+
+  if (!started) {
+    document.getElementById('welcome').style.display = 'none';
+    started = true;
+    currentConvId = genId();
+    currentConvTitle = null;
+    updateConvTitleUI();
+    // Auto-name in background
+    autoNameConversation(text).then(title => {
+      currentConvTitle = title;
+      updateConvTitleUI();
+      saveCurrentConv();
+      renderDrawer();
     });
-    const d = await res.json();
-    if(d.error) throw new Error(d.error.message);
+  }
+
+  lastQuestion = text;
+  lastResponses = {}; reconsidered = {};
+  for (const ai of targets) histories[ai].push({role:'user',content:text});
+
+  // Build round in DOM
+  const conv = document.getElementById('conversations');
+  const roundEl = document.createElement('div'); roundEl.className = 'round';
+  const rl = document.createElement('div'); rl.className = 'round-label';
+  rl.textContent = 'Consultation ' + (currentRounds.length + 1); roundEl.appendChild(rl);
+  const ub = document.createElement('div'); ub.className = 'user-bubble';
+  ub.textContent = text; roundEl.appendChild(ub);
+
+  const viewer = buildTabbedViewer(targets);
+  roundEl.appendChild(viewer);
+  conv.appendChild(roundEl); scrollToBottom();
+
+  // Track this round's data
+  const roundData = { question: text, targets, firstTexts: {}, reconsideredTexts: {} };
+  currentRounds.push(roundData);
+
+  // Fetch all AIs in parallel
+  await Promise.all(targets.map(async ai => {
+    const t = await fetchAIText(ai);
+    lastResponses[ai] = t;
+    roundData.firstTexts[ai] = t;
+    if (t && !t.startsWith('⚠️')) histories[ai].push({role:'assistant',content:t});
+    setViewerPane(viewer, ai, 'first', t);
+  }));
+
+  addActionRow(conv, targets, viewer, true);
+  saveCurrentConv();
+
+  // Auto-synth on follow-ups if toggled
+  if (started && synthOnFollowup && currentRounds.length > 1) {
+    await runReconsider(conv, targets, viewer, roundData);
+  }
+
+  isLoading = false;
+  document.getElementById('sendBtn').disabled = false;
+  scrollToBottom();
+}
+
+// ═══════════════════════════════════════════════
+// TABBED VIEWER
+// ═══════════════════════════════════════════════
+function buildTabbedViewer(targets) {
+  const names = {claude:'Claude',gemini:'Gemini',gpt:'ChatGPT',grok:'Grok',deepseek:'DeepSeek'};
+  let activeAI = targets[0], activeView = 'first';
+
+  const viewer = document.createElement('div');
+  viewer.className = 'tabbed-viewer ' + activeAI;
+  viewer._firstTexts = {}; viewer._reconsideredTexts = {};
+
+  // AI tabs
+  const tabBar = document.createElement('div'); tabBar.className = 'ai-tabs';
+  targets.forEach(ai => {
+    const tab = document.createElement('button');
+    tab.className = 'ai-tab' + (ai===activeAI ? ' active-'+ai : '');
+    tab.textContent = names[ai]; tab.dataset.ai = ai;
+    tab.onclick = () => {
+      activeAI = ai;
+      tabBar.querySelectorAll('.ai-tab').forEach(t => t.className='ai-tab'+(t.dataset.ai===ai?' active-'+ai:''));
+      viewer.className = 'tabbed-viewer ' + ai;
+      updateToggle(); showPane();
+    };
+    tabBar.appendChild(tab);
+  });
+  viewer.appendChild(tabBar);
+
+  // View toggle
+  const vt = document.createElement('div'); vt.className = 'view-toggle';
+  const bf = document.createElement('button'); bf.className='view-btn active'; bf.textContent='First take';
+  const br = document.createElement('button'); br.className='view-btn'; br.textContent='Reconsidered'; br.disabled=true;
+  bf.onclick = () => { activeView='first';        bf.className='view-btn active'; br.className='view-btn'; br.disabled=!viewer._reconsideredTexts[activeAI]; showPane(); };
+  br.onclick = () => { activeView='reconsidered'; bf.className='view-btn';       br.className='view-btn active'; showPane(); };
+  vt.appendChild(bf); vt.appendChild(br); viewer.appendChild(vt);
+
+  // Pane
+  const pane = document.createElement('div'); pane.className='response-pane';
+  pane.innerHTML='<div class="loading-dots"><span></span><span></span><span></span></div>';
+  viewer.appendChild(pane);
+
+  function updateToggle() { br.disabled = !viewer._reconsideredTexts[activeAI]; }
+  function showPane() {
+    const t = (activeView==='first' ? viewer._firstTexts : viewer._reconsideredTexts)[activeAI];
+    if (!t || t==='loading') pane.innerHTML='<div class="loading-dots"><span></span><span></span><span></span></div>';
+    else pane.textContent = t;
+  }
+
+  viewer._showPane = showPane;
+  viewer._updateToggle = updateToggle;
+  viewer._getActiveAI   = () => activeAI;
+  viewer._getActiveView = () => activeView;
+  viewer._btnRecon = br;
+  return viewer;
+}
+
+function setViewerPane(viewer, ai, view, text) {
+  if (view==='first') viewer._firstTexts[ai] = text;
+  else                viewer._reconsideredTexts[ai] = text;
+  if (viewer._getActiveAI()===ai && viewer._getActiveView()===view) viewer._showPane();
+  viewer._updateToggle();
+}
+
+// ═══════════════════════════════════════════════
+// RECONSIDER
+// ═══════════════════════════════════════════════
+async function runReconsider(conv, targets, viewer, roundData) {
+  const synthBtn = conv.querySelector('.synth-btn');
+  if (synthBtn) { synthBtn.disabled=true; synthBtn.textContent='⟳ Deliberating…'; }
+
+  if (!roundData) roundData = currentRounds[currentRounds.length - 1];
+  reconsidered = {};
+
+  await Promise.all(targets.map(async ai => {
+    setViewerPane(viewer, ai, 'reconsidered', 'loading');
+    const others = targets.filter(o => o!==ai && lastResponses[o] && !lastResponses[o].startsWith('⚠️'));
+    if (others.length === 0) {
+      const t = '(No other responses available to compare.)';
+      reconsidered[ai] = t; roundData.reconsideredTexts[ai] = t;
+      setViewerPane(viewer, ai, 'reconsidered', t); return;
+    }
+    const names = {claude:'Claude',gemini:'Gemini',gpt:'ChatGPT',grok:'Grok',deepseek:'DeepSeek'};
+    const othersText = others.map(o=>'--- '+names[o]+' said ---\n'+lastResponses[o]).join('\n\n');
+    const prompt = 'The original question was:\n"'+lastQuestion+'"\n\nYour initial response was:\n"'+lastResponses[ai]+'"\n\nHere is how the other AIs responded:\n\n'+othersText+'\n\nHaving read those perspectives, please provide a reconsidered response. Be concise.';
+    const t = await fetchAITextOneShot(ai, prompt);
+    reconsidered[ai] = t; roundData.reconsideredTexts[ai] = t;
+    setViewerPane(viewer, ai, 'reconsidered', t);
+  }));
+
+  saveCurrentConv();
+  if (synthBtn) { synthBtn.disabled=true; synthBtn.textContent='✓ Deliberated'; }
+}
+
+// ═══════════════════════════════════════════════
+// ACTION ROW
+// ═══════════════════════════════════════════════
+function addActionRow(conv, targets, viewer, isActive) {
+  const ex = conv.querySelector('.action-row'); if(ex) ex.remove();
+  const row = document.createElement('div'); row.className='action-row';
+
+  const top = document.createElement('div'); top.className='action-top';
+  const synthBtn = document.createElement('button'); synthBtn.className='synth-btn';
+
+  if (!isActive) {
+    synthBtn.textContent='✓ Done'; synthBtn.disabled=true;
+  } else {
+    synthBtn.textContent='✦ Let the council deliberate';
+    synthBtn.onclick = () => runReconsider(conv, targets, viewer, null);
+  }
+  top.appendChild(synthBtn);
+
+  const toggleWrap = document.createElement('label'); toggleWrap.className='synth-toggle';
+  const track = document.createElement('div'); track.className='toggle-track'+(synthOnFollowup?' on':'');
+  const thumb = document.createElement('div'); thumb.className='toggle-thumb';
+  track.appendChild(thumb);
+  const lbl = document.createElement('span'); lbl.textContent='All consultations';
+  toggleWrap.appendChild(track); toggleWrap.appendChild(lbl);
+  toggleWrap.onclick = () => { synthOnFollowup=!synthOnFollowup; track.className='toggle-track'+(synthOnFollowup?' on':''); };
+  top.appendChild(toggleWrap);
+  row.appendChild(top);
+
+  const fl = document.createElement('div'); fl.className='followup-label'; fl.textContent='Continue consulting…'; row.appendChild(fl);
+  const wrap = document.createElement('div'); wrap.className='ai-toggles';
+  [{id:'claude',name:'Claude'},{id:'gemini',name:'Gemini'},{id:'gpt',name:'ChatGPT'},{id:'grok',name:'Grok'},{id:'deepseek',name:'DeepSeek'}].forEach(({id,name}) => {
+    if (!histories[id].length) return;
+    const btn=document.createElement('button');
+    btn.className='ai-toggle'+(activeAIs[id]?' active-'+id:'');
+    btn.textContent=name; btn.onclick=()=>toggleAI(id,btn);
+    wrap.appendChild(btn);
+  });
+  row.appendChild(wrap);
+  conv.appendChild(row);
+}
+
+function toggleAI(ai,btn) {
+  const active=Object.values(activeAIs).filter(Boolean).length;
+  if(activeAIs[ai]&&active<=1) return;
+  activeAIs[ai]=!activeAIs[ai];
+  btn.classList.toggle('active-'+ai,activeAIs[ai]);
+}
+
+// ═══════════════════════════════════════════════
+// AI FETCH WRAPPERS
+// ═══════════════════════════════════════════════
+async function fetchAIText(ai) {
+  try {
+    if(ai==='claude')   return await _claudeFetch(histories.claude.map(m=>({role:m.role,content:m.content})));
+    if(ai==='gemini')   return await _geminiFetch(histories.gemini);
+    if(ai==='gpt')      return await _gptFetch(histories.gpt.map(m=>({role:m.role,content:m.content})));
+    if(ai==='grok')     return await _grokFetch(histories.grok.map(m=>({role:m.role,content:m.content})));
+    if(ai==='deepseek') return await _deepseekFetch(histories.deepseek.map(m=>({role:m.role,content:m.content})));
+  } catch(e) { return '⚠️ Error: '+e.message; }
+  return '';
+}
+
+async function fetchAITextOneShot(ai, prompt) {
+  const msgs = [{role:'user',content:prompt}];
+  try {
+    if(ai==='claude')   return await _claudeFetch(msgs);
+    if(ai==='gemini')   return await _geminiFetch(msgs);
+    if(ai==='gpt')      return await _gptFetch(msgs);
+    if(ai==='grok')     return await _grokFetch(msgs);
+    if(ai==='deepseek') return await _deepseekFetch(msgs);
+  } catch(e) { return '⚠️ Error: '+e.message; }
+  return '';
+}
+
+// ═══════════════════════════════════════════════
+// RAW FETCHERS
+// ═══════════════════════════════════════════════
+async function _claudeFetch(messages) {
+  const endpoint = keys.claudeProxy ? keys.claudeProxy.replace(/\/$/,'')+'/v1/messages' : null;
+  if(!endpoint) return '⚠️ Claude requires a proxy URL. Tap ⚙ Keys to set one up.';
+  const res = await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages})});
+  const d=await res.json(); if(d.error) throw new Error(d.error.message);
+  return d.content.map(b=>b.text||'').join('');
+}
+
+const GEMINI_MODELS=['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash','gemini-2.0-pro','gemini-1.5-flash','gemini-1.5-pro'];
+let workingGeminiModel=null;
+async function _geminiFetch(messages) {
+  const contents=messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));
+  for(const model of (workingGeminiModel?[workingGeminiModel]:GEMINI_MODELS)){
+    const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+keys.gemini,
+      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents})});
+    const d=await res.json();
+    if(d.error){const msg=d.error.message||'';
+      if(msg.includes('not found')||msg.includes('not supported')||msg.includes('no longer available')||msg.includes('deprecated')) continue;
+      throw new Error(msg);}
+    workingGeminiModel=model;
+    return d.candidates?.[0]?.content?.parts?.[0]?.text||'(no response)';
+  }
+  throw new Error('All Gemini models unavailable.');
+}
+
+const GPT_MODELS=['gpt-5.4-mini','gpt-5.4','gpt-4.1-mini','gpt-4.1','gpt-4o-mini','gpt-4o'];
+let workingGptModel=null;
+async function _gptFetch(messages) {
+  for(const model of (workingGptModel?[workingGptModel]:GPT_MODELS)){
+    const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.gpt},
+      body:JSON.stringify({model,max_completion_tokens:1000,messages})});
+    const d=await res.json();
+    if(d.error){const msg=d.error.message||'';
+      if(msg.includes('does not exist')||msg.includes('deprecated')||msg.includes('not found')||msg.includes('invalid model')) continue;
+      throw new Error(msg);}
+    workingGptModel=model;
     return d.choices?.[0]?.message?.content||'(no response)';
   }
+  throw new Error('All ChatGPT models unavailable.');
+}
 
-  // ── Init ──
-  loadKeys();
+const GROK_MODELS=['grok-4','grok-4.20','grok-3','grok-3-fast','grok-2'];
+let workingGrokModel=null;
+async function _grokFetch(messages) {
+  for(const model of (workingGrokModel?[workingGrokModel]:GROK_MODELS)){
+    const res=await fetch('https://api.x.ai/v1/chat/completions',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.grok},
+      body:JSON.stringify({model,max_tokens:1000,messages})});
+    const d=await res.json();
+    if(d.error){const msg=d.error.message||'';
+      if(msg.includes('does not exist')||msg.includes('deprecated')||msg.includes('not found')||msg.includes('invalid model')||msg.includes('no longer supported')) continue;
+      throw new Error(msg);}
+    workingGrokModel=model;
+    return d.choices?.[0]?.message?.content||'(no response)';
+  }
+  throw new Error('All Grok models unavailable.');
+}
 
-  document.querySelectorAll('input, textarea').forEach(el => {
-    el.addEventListener('focus', () => {
-      document.querySelector('meta[name=viewport]').setAttribute('content','width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
-    });
+async function _deepseekFetch(messages) {
+  const res=await fetch('https://api.deepseek.com/v1/chat/completions',{method:'POST',
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.deepseek},
+    body:JSON.stringify({model:'deepseek-chat',max_tokens:1000,messages})});
+  const d=await res.json(); if(d.error) throw new Error(d.error.message);
+  return d.choices?.[0]?.message?.content||'(no response)';
+}
+
+// ═══════════════════════════════════════════════
+// KEY PERSISTENCE
+// ═══════════════════════════════════════════════
+function loadKeys() {
+  for(const [ai,sk] of Object.entries(SK)){try{const v=localStorage.getItem(sk);if(v)keys[ai]=v;}catch(e){}}
+  refreshStatusUI();
+}
+function refreshStatusUI() {
+  const map={gemini:'stGemini',gpt:'stGpt',grok:'stGrok',deepseek:'stDeepseek'};
+  for(const [ai,id] of Object.entries(map)){
+    const el=document.getElementById(id);if(!el)continue;
+    el.textContent=keys[ai]?'✓ Saved':'✗ Not set';
+    el.className=keys[ai]?'dot-set':'dot-unset';
+  }
+  const any=Object.values(keys).some(Boolean);
+  document.getElementById('settingsBtn').className='hdr-btn'+(any?' active':'');
+}
+function openSettings(){
+  document.getElementById('claudeProxyKey').value=keys.claudeProxy;
+  document.getElementById('geminiKey').value=keys.gemini;
+  document.getElementById('openaiKey').value=keys.gpt;
+  document.getElementById('grokKey').value=keys.grok;
+  document.getElementById('deepseekKey').value=keys.deepseek;
+  ['claudeProxyKey','geminiKey','openaiKey','grokKey','deepseekKey'].forEach(id=>markFilled(document.getElementById(id)));
+  document.getElementById('svClaude').textContent=keys.claudeProxy?'✓ saved':'';
+  document.getElementById('svGemini').textContent=keys.gemini?'✓ saved':'';
+  document.getElementById('svGpt').textContent=keys.gpt?'✓ saved':'';
+  document.getElementById('svGrok').textContent=keys.grok?'✓ saved':'';
+  document.getElementById('svDeepseek').textContent=keys.deepseek?'✓ saved':'';
+  document.getElementById('overlay').classList.remove('hidden');
+}
+function closeSettings(){document.getElementById('overlay').classList.add('hidden');}
+function overlayClick(e){if(e.target.id==='overlay')closeSettings();}
+function saveSettings(){
+  keys.claudeProxy=document.getElementById('claudeProxyKey').value.trim();
+  keys.gemini=document.getElementById('geminiKey').value.trim();
+  keys.gpt=document.getElementById('openaiKey').value.trim();
+  keys.grok=document.getElementById('grokKey').value.trim();
+  keys.deepseek=document.getElementById('deepseekKey').value.trim();
+  try{for(const [ai,sk] of Object.entries(SK)){keys[ai]?localStorage.setItem(sk,keys[ai]):localStorage.removeItem(sk);}}catch(e){}
+  refreshStatusUI();closeSettings();
+}
+function clearAllKeys(){
+  if(!confirm('Remove all saved API keys from this browser?'))return;
+  keys={gemini:'',gpt:'',grok:'',deepseek:'',claudeProxy:''};
+  try{Object.values(SK).forEach(sk=>localStorage.removeItem(sk));}catch(e){}
+  refreshStatusUI();closeSettings();
+}
+function toggleVis(id,btn){
+  const el=document.getElementById(id);
+  el.type=el.type==='password'?'text':'password';
+  btn.textContent=el.type==='password'?'👁':'🙈';
+}
+function markFilled(el){el.classList.toggle('filled',el.value.length>0);}
+
+// ═══════════════════════════════════════════════
+// MISC HELPERS
+// ═══════════════════════════════════════════════
+function autoResize(el){el.style.height='auto';el.style.height=Math.min(el.scrollHeight,160)+'px';}
+function scrollToBottom(){setTimeout(()=>document.getElementById('bottom').scrollIntoView({behavior:'smooth'}),60);}
+
+// ═══════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════
+loadKeys();
+updateStorageBar();
+
+// Restore last active conversation on page load
+(function() {
+  const index = loadConvIndex();
+  if (index.length > 0) loadConv(index[0].id);
+})();
+
+document.querySelectorAll('input,textarea').forEach(el=>{
+  el.addEventListener('focus',()=>{
+    document.querySelector('meta[name=viewport]').setAttribute('content','width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
   });
+});
 </script>
 </body>
 </html>
