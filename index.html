@@ -6,6 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Council of Advisors</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root {
     --bg: #080b12; --surface: #0e1220; --border: #1a2035;
@@ -258,6 +259,28 @@
     font-family:'Syne',sans-serif;font-size:13px;cursor:pointer;transition:all .2s;}
   .btn-clear:hover{border-color:rgba(255,107,107,.5);}
   #bottom{height:1px;}
+
+  /* ── File attachment ── */
+  .attach-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--border);
+    background:none;color:var(--muted);font-size:18px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;transition:all .2s;flex-shrink:0;}
+  .attach-btn:hover{border-color:var(--claude-color);color:var(--claude-color);}
+  .attachment-preview{display:flex;align-items:center;gap:8px;
+    background:rgba(139,105,20,.1);border:1px solid rgba(139,105,20,.25);
+    border-radius:10px;padding:8px 12px;margin-bottom:8px;}
+  .attachment-icon{font-size:18px;flex-shrink:0;}
+  .attachment-info{flex:1;min-width:0;}
+  .attachment-name{font-size:12px;font-weight:600;color:var(--claude-color);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .attachment-meta{font-size:11px;color:var(--muted);margin-top:1px;}
+  .attachment-remove{background:none;border:none;color:var(--muted);
+    font-size:16px;cursor:pointer;padding:2px 4px;flex-shrink:0;transition:color .2s;}
+  .attachment-remove:hover{color:#ff6b6b;}
+  .file-badge{display:inline-flex;align-items:center;gap:5px;
+    font-size:11px;font-family:"JetBrains Mono",monospace;
+    background:rgba(139,105,20,.12);color:var(--claude-color);
+    border:1px solid rgba(139,105,20,.25);border-radius:6px;padding:3px 8px;margin-top:4px;}
+  .unsupported-note{font-size:12px;color:var(--muted);font-style:italic;padding:8px 14px;}
 </style>
 </head>
 <body>
@@ -330,8 +353,21 @@
 </main>
 
 <div class="input-bar">
+  <div id="attachmentPreview" style="display:none;">
+    <div class="attachment-preview">
+      <span class="attachment-icon" id="attachIcon">📄</span>
+      <div class="attachment-info">
+        <div class="attachment-name" id="attachName"></div>
+        <div class="attachment-meta" id="attachMeta"></div>
+      </div>
+      <button class="attachment-remove" onclick="clearAttachment()" title="Remove">✕</button>
+    </div>
+  </div>
   <div class="input-hint">↵ new line &nbsp;·&nbsp; tap ↑ to consult</div>
   <div class="input-wrap">
+    <button class="attach-btn" onclick="document.getElementById('fileInput').click()" title="Attach image or PDF">📎</button>
+    <input type="file" id="fileInput" accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+      style="display:none" onchange="handleFileSelect(this)">
     <textarea id="inputBox" placeholder="Put your question to the council…" rows="1" oninput="autoResize(this)"></textarea>
     <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Consult the council">↑</button>
   </div>
@@ -409,6 +445,14 @@ let keys = { gemini:'', gpt:'', grok:'', deepseek:'', claudeProxy:'' };
 let isLoading = false;
 let histories  = { claude:[], gemini:[], gpt:[], grok:[], deepseek:[] };
 let lastResponses = {}, lastQuestion = '', reconsidered = {};
+
+// ── Attachment state ──
+// Holds the current pending attachment before it's sent
+// { type:'image'|'pdf', name:string, mimeType:string,
+//   base64:string,           // for images: raw base64; for PDFs: raw base64
+//   extractedText:string,    // for PDFs: text extracted via PDF.js
+//   sizeKb:number }
+let pendingAttachment = null;
 let activeAIs  = { claude:true, gemini:true, gpt:true, grok:true, deepseek:true };
 let started = false, synthOnFollowup = false;
 
@@ -581,6 +625,7 @@ function loadConv(id) {
   currentRounds    = data.rounds || [];
   started          = true;
   lastResponses = {}; lastQuestion = ''; reconsidered = {};
+  Object.keys(summaryState).forEach(k => summaryState[k] = null);
 
   // Clear and re-render UI
   document.getElementById('welcome').style.display = 'none';
@@ -625,6 +670,8 @@ function newChat(skipConfirm) {
   activeAIs    = { claude:true, gemini:true, gpt:true, grok:true, deepseek:true };
   lastResponses = {}; lastQuestion = ''; reconsidered = {};
   currentRounds = []; currentConvId = null; currentConvTitle = null;
+  Object.keys(summaryState).forEach(k => summaryState[k] = null);
+  pendingAttachment = null; clearAttachmentUI();
   started = false;
   document.getElementById('conversations').innerHTML = '';
   document.getElementById('welcome').style.display = 'flex';
@@ -635,6 +682,145 @@ function newChat(skipConfirm) {
 // ═══════════════════════════════════════════════
 // SEND MESSAGE
 // ═══════════════════════════════════════════════
+// ═══════════════════════════════════════════════
+// FILE ATTACHMENT HANDLING
+// ═══════════════════════════════════════════════
+
+async function handleFileSelect(input) {
+  const file = input.files[0];
+  if (!file) return;
+  input.value = ''; // reset so same file can be re-selected
+
+  const sizeKb = Math.round(file.size / 1024);
+  const isImage = file.type.startsWith('image/');
+  const isPdf   = file.type === 'application/pdf';
+
+  if (!isImage && !isPdf) {
+    alert('Please attach an image (jpg, png, gif, webp) or a PDF.');
+    return;
+  }
+  if (sizeKb > 20480) { // 20MB limit
+    alert('File is too large (max 20MB). Please use a smaller file.');
+    return;
+  }
+
+  // Read file as base64
+  const base64 = await new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload  = () => res(r.result.split(',')[1]);
+    r.onerror = () => rej(new Error('Failed to read file'));
+    r.readAsDataURL(file);
+  });
+
+  let extractedText = null;
+
+  if (isPdf) {
+    // Extract text using PDF.js for fallback to text-only AIs
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      const typedArray = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+      const pdf = await pdfjsLib.getDocument({ data: typedArray }).promise;
+      const pages = [];
+      for (let i = 1; i <= Math.min(pdf.numPages, 50); i++) { // cap at 50 pages
+        const page = await pdf.getPage(i);
+        const tc   = await page.getTextContent();
+        pages.push(tc.items.map(s => s.str).join(' '));
+      }
+      extractedText = pages.join('
+
+').trim();
+      if (!extractedText) extractedText = '[PDF contains no extractable text — may be a scanned image]';
+    } catch(e) {
+      extractedText = '[Could not extract PDF text: ' + e.message + ']';
+    }
+  }
+
+  pendingAttachment = {
+    type:          isImage ? 'image' : 'pdf',
+    name:          file.name,
+    mimeType:      file.type,
+    base64,
+    extractedText,
+    sizeKb
+  };
+
+  // Show preview
+  document.getElementById('attachIcon').textContent  = isImage ? '🖼' : '📄';
+  document.getElementById('attachName').textContent  = file.name;
+  document.getElementById('attachMeta').textContent  =
+    (isImage ? 'Image' : 'PDF') + ' · ' + (sizeKb < 1024 ? sizeKb + ' KB' : (sizeKb/1024).toFixed(1) + ' MB') +
+    (isPdf && extractedText && !extractedText.startsWith('[') ? ' · ' + extractedText.split(/\s+/).length + ' words extracted' : '');
+  document.getElementById('attachmentPreview').style.display = 'block';
+}
+
+function clearAttachment() {
+  pendingAttachment = null;
+  clearAttachmentUI();
+}
+
+function clearAttachmentUI() {
+  document.getElementById('attachmentPreview').style.display = 'none';
+  const fi = document.getElementById('fileInput');
+  if (fi) fi.value = '';
+}
+
+// Build the content array for an AI given text + attachment
+// Returns either a string (text only) or an array (multimodal)
+function buildMessageContent(ai, text, attachment) {
+  if (!attachment) return text;
+
+  const supportsNativeFile = (attachment.type === 'image')
+    ? ['claude','gemini','gpt','grok'].includes(ai)
+    : ['claude','gemini'].includes(ai); // PDFs: only Claude + Gemini natively
+
+  if (attachment.type === 'image' && supportsNativeFile) {
+    if (ai === 'claude') {
+      return [
+        { type: 'image', source: { type: 'base64', media_type: attachment.mimeType, data: attachment.base64 } },
+        { type: 'text',  text: text || 'Please analyse this image.' }
+      ];
+    }
+    if (ai === 'gemini') {
+      // Gemini uses inline_data format
+      return { text, inlineData: { mimeType: attachment.mimeType, data: attachment.base64 } };
+    }
+    if (ai === 'gpt' || ai === 'grok') {
+      return [
+        { type: 'text',      text: text || 'Please analyse this image.' },
+        { type: 'image_url', image_url: { url: 'data:' + attachment.mimeType + ';base64,' + attachment.base64 } }
+      ];
+    }
+  }
+
+  if (attachment.type === 'pdf' && supportsNativeFile) {
+    if (ai === 'claude') {
+      return [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: attachment.base64 } },
+        { type: 'text',     text: text || 'Please analyse this document.' }
+      ];
+    }
+    if (ai === 'gemini') {
+      return { text, inlineData: { mimeType: 'application/pdf', data: attachment.base64 } };
+    }
+  }
+
+  // Fallback: send extracted text for PDFs, or unsupported note for images
+  if (attachment.type === 'pdf' && attachment.extractedText) {
+    return text + '
+
+[Attached PDF: ' + attachment.name + ']
+
+' + attachment.extractedText;
+  }
+  if (attachment.type === 'image') {
+    return text + '
+
+[Note: An image was attached ("' + attachment.name + '") but this advisor cannot process images via API.]';
+  }
+  return text;
+}
+
 async function sendMessage() {
   const input = document.getElementById('inputBox');
   const text  = input.value.trim();
@@ -668,7 +854,14 @@ async function sendMessage() {
 
   lastQuestion = text;
   lastResponses = {}; reconsidered = {};
-  for (const ai of targets) histories[ai].push({role:'user',content:text});
+
+  // Capture and clear attachment
+  const attachment = pendingAttachment ? {...pendingAttachment} : null;
+  if (attachment) clearAttachment();
+
+  // Push user message into each AI's history
+  // For the history we store text only (base64 would bloat saved sessions)
+  for (const ai of targets) histories[ai].push({role:'user', content: text});
 
   // Build round in DOM
   const conv = document.getElementById('conversations');
@@ -676,7 +869,13 @@ async function sendMessage() {
   const rl = document.createElement('div'); rl.className = 'round-label';
   rl.textContent = 'Consultation ' + (currentRounds.length + 1); roundEl.appendChild(rl);
   const ub = document.createElement('div'); ub.className = 'user-bubble';
-  ub.textContent = text; roundEl.appendChild(ub);
+  ub.textContent = text;
+  if (attachment) {
+    const badge = document.createElement('div'); badge.className = 'file-badge';
+    badge.textContent = (attachment.type==='image' ? '🖼 ' : '📄 ') + attachment.name;
+    ub.appendChild(badge);
+  }
+  roundEl.appendChild(ub);
 
   const viewer = buildTabbedViewer(targets);
   roundEl.appendChild(viewer);
@@ -686,9 +885,9 @@ async function sendMessage() {
   const roundData = { question: text, targets, firstTexts: {}, reconsideredTexts: {} };
   currentRounds.push(roundData);
 
-  // Fetch all AIs in parallel
+  // Fetch all AIs in parallel, passing attachment for this round only
   await Promise.all(targets.map(async ai => {
-    const t = await fetchAIText(ai);
+    const t = await fetchAIText(ai, attachment);
     lastResponses[ai] = t;
     roundData.firstTexts[ai] = t;
     if (t && !t.startsWith('⚠️')) histories[ai].push({role:'assistant',content:t});
@@ -794,6 +993,16 @@ async function runReconsider(conv, targets, viewer, roundData) {
     const t = await fetchAITextOneShot(ai, prompt);
     reconsidered[ai] = t; roundData.reconsideredTexts[ai] = t;
     setViewerPane(viewer, ai, 'reconsidered', t);
+
+    // Inject the deliberation into this AI's conversation history so follow-up
+    // questions build on the reconsidered position, not the original one.
+    // We record exactly the prompt that was sent (so the AI sees a consistent
+    // account of what happened) and then its reconsidered response as the
+    // assistant turn.
+    if (t && !t.startsWith('⚠️')) {
+      histories[ai].push({ role: 'user',      content: prompt });
+      histories[ai].push({ role: 'assistant', content: t });
+    }
   }));
 
   saveCurrentConv();
@@ -849,15 +1058,123 @@ function toggleAI(ai,btn) {
 }
 
 // ═══════════════════════════════════════════════
+// COST MANAGEMENT: TOKEN ESTIMATION & SUMMARISATION
+// ═══════════════════════════════════════════════
+
+// Rough token estimator: ~4 chars per token
+function estimateTokens(messages) {
+  return messages.reduce((n, m) => n + Math.ceil((m.content||'').length / 4), 0);
+}
+
+// Summarisation threshold: if history exceeds this many tokens, compress older rounds.
+// Keep the most recent KEEP_RECENT messages in full; summarise everything before.
+const SUMMARY_THRESHOLD = 3000; // ~12k chars — triggers after ~4-6 rounds with deliberation
+const KEEP_RECENT = 6;          // always keep last 6 messages verbatim (3 exchanges)
+
+// Per-AI summary state: { summarisedUpTo: index, summaryText: string }
+const summaryState = { claude:null, gemini:null, gpt:null, grok:null, deepseek:null };
+
+// Returns a (possibly compressed) messages array for sending to the API.
+// If history is long, older messages are replaced with a summary prefix message.
+async function getCompressedHistory(ai) {
+  const hist = histories[ai];
+  const tokens = estimateTokens(hist);
+
+  if (tokens <= SUMMARY_THRESHOLD || hist.length <= KEEP_RECENT) {
+    return hist.map(m => ({role:m.role, content:m.content}));
+  }
+
+  // Split: old messages to summarise, recent to keep verbatim
+  const oldMsgs   = hist.slice(0, hist.length - KEEP_RECENT);
+  const recentMsgs = hist.slice(hist.length - KEEP_RECENT);
+
+  // Check if we already have a valid summary covering these old messages
+  const state = summaryState[ai];
+  let summaryText;
+
+  if (state && state.summarisedUpTo === hist.length - KEEP_RECENT) {
+    // Reuse existing summary
+    summaryText = state.summaryText;
+  } else {
+    // Generate a new summary by asking the AI to compress the old messages
+    const summaryPrompt =
+      'The following is the earlier part of a conversation. Please write a concise summary ' +
+      '(max 200 words) capturing the key questions asked, positions taken, any deliberation ' +
+      'between advisors, and the final conclusions reached. This summary will replace the ' +
+      'original messages to save context space.
+
+' +
+      oldMsgs.map(m => (m.role==='user'?'User':'Assistant')+': '+m.content).join('
+
+');
+
+    try {
+      summaryText = await fetchAITextOneShot(ai, summaryPrompt);
+      if (!summaryText || summaryText.startsWith('⚠️')) {
+        // Summarisation failed — just send full history
+        return hist.map(m => ({role:m.role, content:m.content}));
+      }
+    } catch(e) {
+      return hist.map(m => ({role:m.role, content:m.content}));
+    }
+
+    summaryState[ai] = { summarisedUpTo: hist.length - KEEP_RECENT, summaryText };
+
+    // Show a subtle indicator in the UI that summarisation happened
+    showSummaryNotice(ai);
+  }
+
+  // Prepend the summary as a user/assistant exchange, then the recent messages
+  return [
+    { role: 'user',      content: '[Earlier conversation summary]
+' + summaryText },
+    { role: 'assistant', content: 'Understood. I have the context of our earlier discussion.' },
+    ...recentMsgs.map(m => ({role:m.role, content:m.content}))
+  ];
+}
+
+function showSummaryNotice(ai) {
+  // Add a small notice in the conversations UI
+  const conv = document.getElementById('conversations');
+  if (!conv) return;
+  const existing = conv.querySelector('.summary-notice-'+ai);
+  if (existing) return; // already shown
+  const names = {claude:'Claude',gemini:'Gemini',gpt:'ChatGPT',grok:'Grok',deepseek:'DeepSeek'};
+  const colours = {claude:'var(--claude-color)',gemini:'var(--gemini-color)',gpt:'var(--gpt-color)',grok:'var(--grok-color)',deepseek:'var(--deepseek-color)'};
+  const notice = document.createElement('div');
+  notice.className = 'summary-notice summary-notice-'+ai;
+  notice.style.cssText = 'font-size:11px;font-family:"JetBrains Mono",monospace;color:'+colours[ai]+
+    ';opacity:0.7;padding:4px 2px;text-align:center;letter-spacing:0.5px;';
+  notice.textContent = '⟳ Earlier ' + names[ai] + ' history compressed to save costs';
+  // Insert before the last action-row
+  const actionRow = conv.querySelector('.action-row');
+  if (actionRow) conv.insertBefore(notice, actionRow);
+  else conv.appendChild(notice);
+}
+
+// ═══════════════════════════════════════════════
 // AI FETCH WRAPPERS
 // ═══════════════════════════════════════════════
-async function fetchAIText(ai) {
+async function fetchAIText(ai, attachment) {
   try {
-    if(ai==='claude')   return await _claudeFetch(histories.claude.map(m=>({role:m.role,content:m.content})));
-    if(ai==='gemini')   return await _geminiFetch(histories.gemini);
-    if(ai==='gpt')      return await _gptFetch(histories.gpt.map(m=>({role:m.role,content:m.content})));
-    if(ai==='grok')     return await _grokFetch(histories.grok.map(m=>({role:m.role,content:m.content})));
-    if(ai==='deepseek') return await _deepseekFetch(histories.deepseek.map(m=>({role:m.role,content:m.content})));
+    // Get compressed history (text-only messages)
+    const msgs = await getCompressedHistory(ai);
+
+    // If there's an attachment, replace the last user message content
+    // with the multimodal version for this specific AI
+    if (attachment && msgs.length > 0) {
+      const last = msgs[msgs.length - 1];
+      if (last.role === 'user') {
+        const richContent = buildMessageContent(ai, last.content, attachment);
+        msgs[msgs.length - 1] = { role: 'user', content: richContent };
+      }
+    }
+
+    if(ai==='claude')   return await _claudeFetch(msgs);
+    if(ai==='gemini')   return await _geminiFetch(msgs, attachment);
+    if(ai==='gpt')      return await _gptFetch(msgs);
+    if(ai==='grok')     return await _grokFetch(msgs);
+    if(ai==='deepseek') return await _deepseekFetch(msgs);
   } catch(e) { return '⚠️ Error: '+e.message; }
   return '';
 }
@@ -875,21 +1192,67 @@ async function fetchAITextOneShot(ai, prompt) {
 }
 
 // ═══════════════════════════════════════════════
-// RAW FETCHERS
+// RAW FETCHERS  (with prompt caching for Claude & OpenAI)
 // ═══════════════════════════════════════════════
 async function _claudeFetch(messages) {
   const endpoint = keys.claudeProxy ? keys.claudeProxy.replace(/\/$/,'')+'/v1/messages' : null;
   if(!endpoint) return '⚠️ Claude requires a proxy URL. Tap ⚙ Keys to set one up.';
-  const res = await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages})});
-  const d=await res.json(); if(d.error) throw new Error(d.error.message);
+
+  // Add cache_control to all messages except the last (newest) one.
+  // Anthropic caches these prefixes at ~10% of normal token cost.
+  const cachedMessages = messages.map((m, i) => {
+    const isLast = i === messages.length - 1;
+    // If content is already an array (multimodal), handle carefully
+    if (Array.isArray(m.content)) {
+      if (!isLast) {
+        // Add cache_control to the last text block in the array
+        const cached = m.content.map((block, bi) =>
+          bi === m.content.length - 1 && block.type === 'text' && block.text.length > 100
+            ? { ...block, cache_control: { type: 'ephemeral' } }
+            : block
+        );
+        return { role: m.role, content: cached };
+      }
+      return { role: m.role, content: m.content };
+    }
+    // Plain string content
+    if (!isLast && m.content && m.content.length > 100) {
+      return { role: m.role, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] };
+    }
+    return { role: m.role, content: m.content };
+  });
+
+  const res = await fetch(endpoint, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'anthropic-beta': 'prompt-caching-2024-07-31' },
+    body: JSON.stringify({ model:'claude-opus-4-6', max_tokens:1000, messages: cachedMessages })
+  });
+  const d = await res.json();
+  if(d.error) throw new Error(d.error.message);
   return d.content.map(b=>b.text||'').join('');
 }
 
-const GEMINI_MODELS=['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash','gemini-2.0-pro','gemini-1.5-flash','gemini-1.5-pro'];
+const GEMINI_MODELS=['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-2.5-pro','gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-pro'];
 let workingGeminiModel=null;
-async function _geminiFetch(messages) {
-  const contents=messages.map(m=>({role:m.role==='assistant'?'model':'user',parts:[{text:m.content}]}));
+async function _geminiFetch(messages, attachment) {
+  const contents = messages.map((m, i) => {
+    const isLast = i === messages.length - 1;
+    // Last user message with a Gemini attachment (image or PDF via inlineData)
+    if (isLast && m.role === 'user' && attachment && typeof m.content === 'object' && m.content.inlineData) {
+      return {
+        role: 'user',
+        parts: [
+          { inlineData: m.content.inlineData },
+          { text: m.content.text || 'Please analyse this.' }
+        ]
+      };
+    }
+    // Normal text message
+    const textContent = Array.isArray(m.content)
+      ? m.content.map(b => b.text||'').join('')
+      : (typeof m.content === 'object' ? m.content.text || '' : m.content);
+    return { role: m.role==='assistant'?'model':'user', parts:[{text: textContent}] };
+  });
   for(const model of (workingGeminiModel?[workingGeminiModel]:GEMINI_MODELS)){
     const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+keys.gemini,
       {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents})});
@@ -903,13 +1266,15 @@ async function _geminiFetch(messages) {
   throw new Error('All Gemini models unavailable.');
 }
 
-const GPT_MODELS=['gpt-5.4-mini','gpt-5.4','gpt-4.1-mini','gpt-4.1','gpt-4o-mini','gpt-4o'];
+const GPT_MODELS=['gpt-5.4','gpt-5.4-mini','gpt-4.1','gpt-4.1-mini','gpt-4o','gpt-4o-mini'];
 let workingGptModel=null;
 async function _gptFetch(messages) {
+  // Normalise any plain-string content — GPT handles both string and array content natively
+  const normMsgs = messages.map(m => ({ role: m.role, content: m.content }));
   for(const model of (workingGptModel?[workingGptModel]:GPT_MODELS)){
     const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.gpt},
-      body:JSON.stringify({model,max_completion_tokens:1000,messages})});
+      body:JSON.stringify({model,max_completion_tokens:1000,messages:normMsgs})});
     const d=await res.json();
     if(d.error){const msg=d.error.message||'';
       if(msg.includes('does not exist')||msg.includes('deprecated')||msg.includes('not found')||msg.includes('invalid model')) continue;
@@ -920,13 +1285,14 @@ async function _gptFetch(messages) {
   throw new Error('All ChatGPT models unavailable.');
 }
 
-const GROK_MODELS=['grok-4','grok-4.20','grok-3','grok-3-fast','grok-2'];
+const GROK_MODELS=['grok-4.1','grok-4','grok-4.20','grok-3','grok-3-fast','grok-2'];
 let workingGrokModel=null;
 async function _grokFetch(messages) {
+  const normMsgs = messages.map(m => ({ role: m.role, content: m.content }));
   for(const model of (workingGrokModel?[workingGrokModel]:GROK_MODELS)){
     const res=await fetch('https://api.x.ai/v1/chat/completions',{method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.grok},
-      body:JSON.stringify({model,max_tokens:1000,messages})});
+      body:JSON.stringify({model,max_tokens:1000,messages:normMsgs})});
     const d=await res.json();
     if(d.error){const msg=d.error.message||'';
       if(msg.includes('does not exist')||msg.includes('deprecated')||msg.includes('not found')||msg.includes('invalid model')||msg.includes('no longer supported')) continue;
@@ -937,12 +1303,32 @@ async function _grokFetch(messages) {
   throw new Error('All Grok models unavailable.');
 }
 
+const DEEPSEEK_MODELS = ['deepseek-v4','deepseek-chat'];
+let workingDeepSeekModel = null;
+
 async function _deepseekFetch(messages) {
-  const res=await fetch('https://api.deepseek.com/v1/chat/completions',{method:'POST',
-    headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.deepseek},
-    body:JSON.stringify({model:'deepseek-chat',max_tokens:1000,messages})});
-  const d=await res.json(); if(d.error) throw new Error(d.error.message);
-  return d.choices?.[0]?.message?.content||'(no response)';
+  // DeepSeek is text-only — ensure all content is a plain string
+  const normMsgs = messages.map(m => ({
+    role: m.role,
+    content: Array.isArray(m.content)
+      ? m.content.map(b => b.text||b.content||'').join('')
+      : (typeof m.content === 'object' ? m.content.text || '' : m.content)
+  }));
+  const modelsToTry = workingDeepSeekModel ? [workingDeepSeekModel] : DEEPSEEK_MODELS;
+  for (const model of modelsToTry) {
+    const res=await fetch('https://api.deepseek.com/v1/chat/completions',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.deepseek},
+      body:JSON.stringify({model,max_tokens:1000,messages:normMsgs})});
+    const d=await res.json();
+    if(d.error){
+      const msg=d.error.message||'';
+      if(msg.includes('does not exist')||msg.includes('not found')||msg.includes('deprecated')) continue;
+      throw new Error(msg);
+    }
+    workingDeepSeekModel = model;
+    return d.choices?.[0]?.message?.content||'(no response)';
+  }
+  throw new Error('All DeepSeek models unavailable.');
 }
 
 // ═══════════════════════════════════════════════
