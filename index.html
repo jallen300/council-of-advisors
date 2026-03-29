@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- AI Arena v3 -->
+<!-- AI Arena v4 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -16,6 +16,7 @@
     --gpt-color:      #10a37f;
     --grok-color:     #cc4444;
     --deepseek-color: #7c5cbf;
+    --synth-color:    #e040fb;
     --text: #e8e8f0;
     --muted: #6b6b80;
     --input-bg: #1a1a24;
@@ -92,7 +93,7 @@
   .dot-set   { font-size: 11px; color: #4caf7d; }
   .dot-unset { font-size: 11px; color: var(--muted); }
 
-  /* ── Conversation ── */
+  /* ── Conversation rounds ── */
   .conversations { display: flex; flex-direction: column; gap: 20px; }
   .round { display: flex; flex-direction: column; gap: 10px; }
   .round-label { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 2px; }
@@ -101,21 +102,60 @@
     padding: 12px 16px; border-radius: var(--radius) var(--radius) 4px var(--radius);
     font-size: 15px; line-height: 1.5; max-width: 85%;
   }
-  .responses-grid { display: flex; flex-direction: column; gap: 10px; }
-  .ai-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-  .ai-card.claude   { border-left: 3px solid var(--claude-color); }
-  .ai-card.gemini   { border-left: 3px solid var(--gemini-color); }
-  .ai-card.gpt      { border-left: 3px solid var(--gpt-color); }
-  .ai-card.grok     { border-left: 3px solid var(--grok-color); }
-  .ai-card.deepseek { border-left: 3px solid var(--deepseek-color); }
-  .ai-card-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid var(--border); }
-  .ai-name { font-size: 12px; font-weight: 700; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.5px; }
-  .claude   .ai-name { color: var(--claude-color); }
-  .gemini   .ai-name { color: var(--gemini-color); }
-  .gpt      .ai-name { color: var(--gpt-color); }
-  .grok     .ai-name { color: var(--grok-color); }
-  .deepseek .ai-name { color: var(--deepseek-color); }
-  .ai-card-body { padding: 14px; font-size: 14px; line-height: 1.65; color: var(--text); white-space: pre-wrap; word-break: break-word; }
+
+  /* ── Tabbed response viewer ── */
+  .tabbed-viewer {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden;
+  }
+
+  /* AI selector tabs */
+  .ai-tabs {
+    display: flex; overflow-x: auto; border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+  .ai-tabs::-webkit-scrollbar { display: none; }
+  .ai-tab {
+    flex-shrink: 0; padding: 10px 14px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    cursor: pointer; border: none; background: none;
+    color: var(--muted); border-bottom: 2px solid transparent;
+    transition: all 0.2s; letter-spacing: 0.3px;
+  }
+  .ai-tab.active-claude   { color: var(--claude-color);   border-bottom-color: var(--claude-color); }
+  .ai-tab.active-gemini   { color: var(--gemini-color);   border-bottom-color: var(--gemini-color); }
+  .ai-tab.active-gpt      { color: var(--gpt-color);      border-bottom-color: var(--gpt-color); }
+  .ai-tab.active-grok     { color: var(--grok-color);     border-bottom-color: var(--grok-color); }
+  .ai-tab.active-deepseek { color: var(--deepseek-color); border-bottom-color: var(--deepseek-color); }
+
+  /* View toggle: First take / Reconsidered */
+  .view-toggle {
+    display: flex; border-bottom: 1px solid var(--border);
+  }
+  .view-btn {
+    flex: 1; padding: 8px 12px; background: none; border: none;
+    font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 600;
+    color: var(--muted); cursor: pointer; transition: all 0.2s;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .view-btn.active { color: var(--text); border-bottom-color: var(--text); }
+  .view-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Response pane */
+  .response-pane {
+    padding: 14px; font-size: 14px; line-height: 1.65;
+    color: var(--text); white-space: pre-wrap; word-break: break-word;
+    min-height: 80px;
+  }
+
+  /* Left-colour accent on active AI */
+  .tabbed-viewer.claude   { border-left: 3px solid var(--claude-color); }
+  .tabbed-viewer.gemini   { border-left: 3px solid var(--gemini-color); }
+  .tabbed-viewer.gpt      { border-left: 3px solid var(--gpt-color); }
+  .tabbed-viewer.grok     { border-left: 3px solid var(--grok-color); }
+  .tabbed-viewer.deepseek { border-left: 3px solid var(--deepseek-color); }
+
+  /* Loading dots */
   .loading-dots { display: flex; gap: 5px; padding: 4px 0; }
   .loading-dots span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: pulse 1.2s infinite; }
   .loading-dots span:nth-child(2) { animation-delay: 0.2s; }
@@ -123,8 +163,40 @@
   @keyframes pulse { 0%,80%,100%{opacity:.3;transform:scale(.8)} 40%{opacity:1;transform:scale(1)} }
   .error-text { color: #ff6b6b; font-size: 13px; font-style: italic; }
 
-  /* ── Follow-up ── */
-  .followup-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+  /* ── Action row (Synthesise + toggles) ── */
+  .action-row {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .action-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+  .synth-btn {
+    flex: 1; padding: 11px 14px;
+    background: linear-gradient(135deg, rgba(224,64,251,0.15), rgba(66,133,244,0.15));
+    border: 1px solid rgba(224,64,251,0.35);
+    border-radius: 10px; color: var(--synth-color);
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+    cursor: pointer; transition: all 0.2s; text-align: center;
+  }
+  .synth-btn:hover { background: linear-gradient(135deg, rgba(224,64,251,0.25), rgba(66,133,244,0.25)); }
+  .synth-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .synth-toggle {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--muted); cursor: pointer; flex-shrink: 0;
+  }
+  .toggle-track {
+    width: 36px; height: 20px; border-radius: 10px;
+    background: var(--border); position: relative; transition: background 0.2s; flex-shrink: 0;
+  }
+  .toggle-track.on { background: rgba(224,64,251,0.5); }
+  .toggle-thumb {
+    width: 14px; height: 14px; border-radius: 50%; background: var(--muted);
+    position: absolute; top: 3px; left: 3px; transition: all 0.2s;
+  }
+  .toggle-track.on .toggle-thumb { left: 19px; background: var(--synth-color); }
+
   .followup-label { font-size: 12px; font-family: 'JetBrains Mono', monospace; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
   .ai-toggles { display: flex; gap: 5px; flex-wrap: wrap; }
   .ai-toggle {
@@ -146,12 +218,13 @@
     border-top: 1px solid var(--border);
     padding: 12px 16px; padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
+  .input-hint { font-size: 11px; color: var(--muted); text-align: right; margin-bottom: 6px; }
   .input-wrap { display: flex; gap: 10px; align-items: flex-end; }
   textarea {
     flex: 1; background: var(--input-bg); border: 1px solid var(--border);
     border-radius: 12px; padding: 12px 14px; color: var(--text);
     font-family: 'Syne', sans-serif; font-size: 16px; resize: none;
-    min-height: 48px; max-height: 120px; outline: none; transition: border-color 0.2s; line-height: 1.4;
+    min-height: 48px; max-height: 160px; outline: none; transition: border-color 0.2s; line-height: 1.4;
   }
   textarea:focus { border-color: rgba(232,160,32,0.5); }
   textarea::placeholder { color: var(--muted); }
@@ -181,10 +254,11 @@
   .claude-note { background: rgba(232,160,32,0.08); border: 1px solid rgba(232,160,32,0.2); border-radius: 10px; padding: 12px; font-size: 12px; color: var(--muted); line-height: 1.5; }
   .key-field { display: flex; flex-direction: column; gap: 7px; }
   .key-field label { font-size: 12px; font-family: 'JetBrains Mono', monospace; font-weight: 600; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: space-between; }
-  .key-field.gemini   label { color: var(--gemini-color); }
-  .key-field.gpt      label { color: var(--gpt-color); }
-  .key-field.grok     label { color: var(--grok-color); }
-  .key-field.deepseek label { color: var(--deepseek-color); }
+  .key-field.gemini      label { color: var(--gemini-color); }
+  .key-field.gpt         label { color: var(--gpt-color); }
+  .key-field.grok        label { color: var(--grok-color); }
+  .key-field.deepseek    label { color: var(--deepseek-color); }
+  .key-field.claude-proxy label { color: var(--claude-color); }
   .saved-tag { font-size: 10px; font-weight: 400; letter-spacing: 0; color: #4caf7d; font-family: 'JetBrains Mono', monospace; }
   .key-wrap { position: relative; }
   .key-field input {
@@ -247,21 +321,23 @@
 </main>
 
 <div class="input-bar">
+  <div class="input-hint">↵ new line &nbsp;·&nbsp; tap ↑ to send</div>
   <div class="input-wrap">
-    <textarea id="inputBox" placeholder="Ask anything…" rows="1" oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+    <textarea id="inputBox" placeholder="Ask anything…" rows="1" oninput="autoResize(this)"></textarea>
     <button class="send-btn" id="sendBtn" onclick="sendMessage()">↑</button>
   </div>
 </div>
 
-<!-- Settings -->
+<!-- Settings overlay -->
 <div class="overlay hidden" id="overlay" onclick="overlayClick(event)">
   <div class="settings-panel">
     <div class="settings-title">
       API Keys
       <button class="close-btn" onclick="closeSettings()">✕</button>
     </div>
-    <div class="settings-subtitle">Saved to this browser only — they'll be here next time you open the app.</div>
+    <div class="settings-subtitle">Saved to this browser only — here next time you open the app.</div>
     <div class="save-notice">🔒 Stored locally on your device. Never sent anywhere except the respective AI provider.</div>
+
     <div class="claude-note">✦ <strong style="color:var(--claude-color)">Claude</strong> needs a free proxy to work from a browser. <a href="https://developers.cloudflare.com/workers/get-started/guide/" target="_blank" class="key-link">Set up a Cloudflare Worker ↗</a> and paste its URL below.</div>
 
     <div class="key-field claude-proxy">
@@ -269,7 +345,7 @@
       <div class="key-wrap">
         <input type="text" id="claudeProxyKey" placeholder="https://your-worker.workers.dev" autocomplete="off" oninput="markFilled(this)">
       </div>
-      <div class="key-note">Optional — skip to use Claude without a proxy (will show an error)</div>
+      <div class="key-note">Optional — without this Claude will show an error</div>
     </div>
 
     <div class="key-field gemini">
@@ -317,14 +393,24 @@
 </div>
 
 <script>
+  // ── Storage ──
   const SK = { gemini:'arena_key_gemini', gpt:'arena_key_gpt', grok:'arena_key_grok', deepseek:'arena_key_deepseek', claudeProxy:'arena_key_claude_proxy' };
   let keys = { gemini:'', gpt:'', grok:'', deepseek:'', claudeProxy:'' };
   let isLoading = false;
+
+  // Per-AI conversation histories (for follow-ups)
   const histories = { claude:[], gemini:[], gpt:[], grok:[], deepseek:[] };
+
+  // Last round's initial responses (for cross-pollination)
+  let lastResponses = {};  // { ai: text }
+  let lastQuestion  = '';  // original question text
+  let reconsidered  = {};  // { ai: text } — reconsidered responses
+
   let activeAIs = { claude:true, gemini:true, gpt:true, grok:true, deepseek:true };
   let started = false;
+  let synthOnFollowup = false; // toggle: apply synth to follow-ups too
 
-  // ── Persistence ──
+  // ── Key persistence ──
   function loadKeys() {
     for (const [ai,sk] of Object.entries(SK)) {
       try { const v = localStorage.getItem(sk); if (v) keys[ai]=v; } catch(e) {}
@@ -345,28 +431,28 @@
 
   // ── Settings panel ──
   function openSettings() {
+    document.getElementById('claudeProxyKey').value = keys.claudeProxy;
     document.getElementById('geminiKey').value      = keys.gemini;
     document.getElementById('openaiKey').value      = keys.gpt;
     document.getElementById('grokKey').value        = keys.grok;
     document.getElementById('deepseekKey').value    = keys.deepseek;
-    document.getElementById('claudeProxyKey').value = keys.claudeProxy;
-    ['geminiKey','openaiKey','grokKey','deepseekKey','claudeProxyKey'].forEach(id => markFilled(document.getElementById(id)));
+    ['claudeProxyKey','geminiKey','openaiKey','grokKey','deepseekKey'].forEach(id => markFilled(document.getElementById(id)));
+    document.getElementById('svClaude').textContent   = keys.claudeProxy ? '✓ saved' : '';
     document.getElementById('svGemini').textContent   = keys.gemini      ? '✓ saved' : '';
     document.getElementById('svGpt').textContent      = keys.gpt         ? '✓ saved' : '';
     document.getElementById('svGrok').textContent     = keys.grok        ? '✓ saved' : '';
     document.getElementById('svDeepseek').textContent = keys.deepseek    ? '✓ saved' : '';
-    document.getElementById('svClaude').textContent   = keys.claudeProxy ? '✓ saved' : '';
     document.getElementById('overlay').classList.remove('hidden');
   }
   function closeSettings() { document.getElementById('overlay').classList.add('hidden'); }
   function overlayClick(e) { if(e.target.id==='overlay') closeSettings(); }
 
   function saveSettings() {
+    keys.claudeProxy = document.getElementById('claudeProxyKey').value.trim();
     keys.gemini      = document.getElementById('geminiKey').value.trim();
     keys.gpt         = document.getElementById('openaiKey').value.trim();
     keys.grok        = document.getElementById('grokKey').value.trim();
     keys.deepseek    = document.getElementById('deepseekKey').value.trim();
-    keys.claudeProxy = document.getElementById('claudeProxyKey').value.trim();
     try {
       for (const [ai,sk] of Object.entries(SK)) {
         keys[ai] ? localStorage.setItem(sk, keys[ai]) : localStorage.removeItem(sk);
@@ -377,7 +463,7 @@
 
   function clearAllKeys() {
     if (!confirm('Remove all saved API keys from this browser?')) return;
-    keys = { gemini:'', gpt:'', grok:'', deepseek:'' };
+    keys = { gemini:'', gpt:'', grok:'', deepseek:'', claudeProxy:'' };
     try { Object.values(SK).forEach(sk => localStorage.removeItem(sk)); } catch(e) {}
     refreshStatusUI(); closeSettings();
   }
@@ -390,21 +476,22 @@
   function markFilled(el) { el.classList.toggle('filled', el.value.length>0); }
 
   // ── UI helpers ──
-  function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,120)+'px'; }
-  function handleKey(e) { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMessage();} }
+  function autoResize(el) { el.style.height='auto'; el.style.height=Math.min(el.scrollHeight,160)+'px'; }
+  // Note: Enter key deliberately NOT wired to send — user uses ↑ button
   function scrollToBottom() { setTimeout(()=>document.getElementById('bottom').scrollIntoView({behavior:'smooth'}),60); }
 
   function newChat() {
     if(started&&!confirm('Start a new conversation? Current chat will be cleared.')) return;
     Object.keys(histories).forEach(k=>histories[k]=[]);
     Object.keys(activeAIs).forEach(k=>activeAIs[k]=true);
+    lastResponses={}; lastQuestion=''; reconsidered={};
     started=false;
     document.getElementById('conversations').innerHTML='';
     document.getElementById('welcome').style.display='flex';
     refreshStatusUI();
   }
 
-  // ── Send ──
+  // ── Main send ──
   async function sendMessage() {
     const input = document.getElementById('inputBox');
     const text = input.value.trim();
@@ -414,8 +501,8 @@
       ? Object.entries(activeAIs).filter(([,v])=>v).map(([k])=>k)
       : ['claude','gemini','gpt','grok','deepseek'];
 
-    // Silently skip any AI that doesn't have a key set
-    targets = targets.filter(ai => ai === 'claude' || keys[ai]);
+    // Silently skip AIs without keys
+    targets = targets.filter(ai => ai==='claude' ? !!keys.claudeProxy : !!keys[ai]);
     if(targets.length===0) { openSettings(); return; }
 
     isLoading=true; input.value=''; input.style.height='auto';
@@ -423,237 +510,193 @@
 
     if(!started){ document.getElementById('welcome').style.display='none'; started=true; }
 
+    lastQuestion = text;
+    lastResponses = {};
+    reconsidered = {};
+
     for(const ai of targets) histories[ai].push({role:'user',content:text});
 
     const conv = document.getElementById('conversations');
     const round = document.createElement('div'); round.className='round';
     const rl=document.createElement('div'); rl.className='round-label';
-    rl.textContent=`Round ${conv.children.length+1}`; round.appendChild(rl);
+    rl.textContent='Round '+(conv.children.length+1); round.appendChild(rl);
     const ub=document.createElement('div'); ub.className='user-bubble';
     ub.textContent=text; round.appendChild(ub);
-    const grid=document.createElement('div'); grid.className='responses-grid';
-    round.appendChild(grid); conv.appendChild(round); scrollToBottom();
 
-    const cardMap={};
-    for(const ai of targets){ const c=createCard(ai); cardMap[ai]=c; grid.appendChild(c); }
-    scrollToBottom();
+    // Build tabbed viewer
+    const viewer = buildTabbedViewer(targets);
+    round.appendChild(viewer);
+    conv.appendChild(round); scrollToBottom();
 
-    await Promise.all(targets.map(ai=>fetchAI(ai,cardMap[ai])));
-
-    addFollowup(conv);
-    isLoading=false; document.getElementById('sendBtn').disabled=false; scrollToBottom();
-  }
-
-  function createCard(ai) {
-    const names={claude:'Claude',gemini:'Gemini',gpt:'ChatGPT',grok:'Grok',deepseek:'DeepSeek'};
-    const c=document.createElement('div'); c.className=`ai-card ${ai}`;
-    c.innerHTML=`<div class="ai-card-header"><span class="ai-name">${names[ai]}</span></div>
-      <div class="ai-card-body"><div class="loading-dots"><span></span><span></span><span></span></div></div>`;
-    return c;
-  }
-
-  function setCard(card,text,err=false) {
-    const b=card.querySelector('.ai-card-body');
-    if(err){ b.innerHTML=`<span class="error-text">${text}</span>`; }
-    else   { b.textContent=text; }
-  }
-
-  // ── Claude ──
-  // The Anthropic API blocks direct browser requests (CORS policy).
-  // To use Claude, set up a free Cloudflare Worker proxy (see README)
-  // and enter its URL in the Keys panel below.
-  async function fetchClaude(card) {
-    try {
-      const endpoint = keys.claudeProxy
-        ? keys.claudeProxy.replace(/\/$/, '') + '/v1/messages'
-        : null;
-
-      if (!endpoint) {
-        setCard(card,
-          '⚠️ Claude requires a proxy URL to work from a web page.\n\n' +
-          'Tap ⚙ Keys and paste your Cloudflare Worker URL into the Claude Proxy field.\n\n' +
-          'See the setup guide at: github.com/jallen300/ai-arena', true);
-        histories.claude.pop(); // remove the user message we just added
-        return;
+    // Fetch all in parallel
+    const responseTexts = {};
+    await Promise.all(targets.map(async ai => {
+      const text = await fetchAIText(ai);
+      responseTexts[ai] = text;
+      lastResponses[ai] = text;
+      // Push to history
+      if(text && !text.startsWith('⚠️')) {
+        histories[ai].push({role:'assistant',content:text});
       }
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514', max_tokens: 1000,
-          messages: histories.claude.map(m => ({ role: m.role, content: m.content }))
-        })
-      });
-      const d = await res.json();
-      if (d.error) throw new Error(d.error.message);
-      const t = d.content.map(b => b.text || '').join('');
-      histories.claude.push({ role: 'assistant', content: t });
-      setCard(card, t);
-    } catch(e) { setCard(card, 'Claude error: ' + e.message, true); }
-  }
-
-  // Gemini model fallback list - tries each in order until one works
-  const GEMINI_MODELS = ['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash','gemini-2.0-pro','gemini-1.5-flash','gemini-1.5-pro'];
-  let workingGeminiModel = null;
-
-  async function fetchGemini(card) {
-    const contents = histories.gemini.map(m => ({
-      role: m.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: m.content }]
+      // Update viewer pane
+      setViewerPane(viewer, ai, 'first', text);
     }));
 
-    const modelsToTry = workingGeminiModel ? [workingGeminiModel] : GEMINI_MODELS;
+    addActionRow(conv, targets, viewer);
 
-    for (const model of modelsToTry) {
-      let res, d;
-      try {
-        res = await fetch(
-          'https://generativelanguage.googleapis.com/v1beta/models/' + model + ':generateContent?key=' + keys.gemini,
-          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ contents }) }
-        );
-        d = await res.json();
-      } catch(e) {
-        setCard(card, 'Gemini error: ' + e.message, true);
-        return;
-      }
+    isLoading=false;
+    document.getElementById('sendBtn').disabled=false;
+    scrollToBottom();
+  }
 
-      if (d.error) {
-        const msg = d.error.message || '';
-        if (msg.includes('not found') || msg.includes('not supported') || msg.includes('no longer available') || msg.includes('deprecated')) {
-          continue; // silently try next model
-        }
-        setCard(card, 'Gemini error: ' + msg, true);
-        return;
-      }
+  // ── Tabbed viewer ──
+  function buildTabbedViewer(targets) {
+    const names = {claude:'Claude',gemini:'Gemini',gpt:'ChatGPT',grok:'Grok',deepseek:'DeepSeek'};
+    let activeAI = targets[0];
+    let activeView = 'first'; // 'first' or 'reconsidered'
 
-      const t = d.candidates?.[0]?.content?.parts?.[0]?.text || '(no response)';
-      workingGeminiModel = model;
-      histories.gemini.push({ role: 'assistant', content: t });
-      setCard(card, t);
-      return;
+    const viewer = document.createElement('div');
+    viewer.className = 'tabbed-viewer ' + activeAI;
+
+    // AI tab bar
+    const tabBar = document.createElement('div'); tabBar.className = 'ai-tabs';
+    targets.forEach(ai => {
+      const tab = document.createElement('button');
+      tab.className = 'ai-tab' + (ai===activeAI ? ' active-'+ai : '');
+      tab.textContent = names[ai];
+      tab.dataset.ai = ai;
+      tab.onclick = () => {
+        activeAI = ai;
+        // Update tab styles
+        tabBar.querySelectorAll('.ai-tab').forEach(t => t.className='ai-tab'+(t.dataset.ai===ai?' active-'+ai:''));
+        // Update viewer border colour
+        viewer.className = 'tabbed-viewer ' + ai;
+        // Update view toggle availability
+        updateViewToggle();
+        showPane();
+      };
+      tabBar.appendChild(tab);
+    });
+    viewer.appendChild(tabBar);
+
+    // First take / Reconsidered toggle
+    const viewToggle = document.createElement('div'); viewToggle.className = 'view-toggle';
+    const btnFirst = document.createElement('button'); btnFirst.className='view-btn active'; btnFirst.textContent='First take';
+    const btnRecon = document.createElement('button'); btnRecon.className='view-btn'; btnRecon.textContent='Reconsidered'; btnRecon.disabled=true;
+    btnFirst.onclick = () => { activeView='first'; btnFirst.className='view-btn active'; btnRecon.className='view-btn'; btnRecon.disabled=!reconsidered[activeAI]; showPane(); };
+    btnRecon.onclick = () => { activeView='reconsidered'; btnFirst.className='view-btn'; btnRecon.className='view-btn active'; showPane(); };
+    viewToggle.appendChild(btnFirst); viewToggle.appendChild(btnRecon);
+    viewer.appendChild(viewToggle);
+
+    // Response pane
+    const pane = document.createElement('div'); pane.className='response-pane';
+    pane.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+    viewer.appendChild(pane);
+
+    // Store refs on viewer element for external access
+    viewer._targets = targets;
+    viewer._firstTexts = {};
+    viewer._reconsideredTexts = {};
+
+    function updateViewToggle() {
+      btnRecon.disabled = !viewer._reconsideredTexts[activeAI];
     }
 
-    setCard(card, 'Gemini error: All known models unavailable. Google may have updated their API.', true);
-  }
-
-  // OpenAI model fallback list - tries each in order until one works
-  const GPT_MODELS = ['gpt-5.4-mini','gpt-5.4','gpt-4.1-mini','gpt-4.1','gpt-4o-mini','gpt-4o'];
-  let workingGptModel = null;
-
-  async function fetchGPT(card) {
-    const messages = histories.gpt.map(m => ({ role: m.role, content: m.content }));
-    const modelsToTry = workingGptModel ? [workingGptModel] : GPT_MODELS;
-
-    for (const model of modelsToTry) {
-      let res, d;
-      try {
-        res = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + keys.gpt },
-          body: JSON.stringify({ model, max_completion_tokens: 1000, messages })
-        });
-        d = await res.json();
-      } catch(e) {
-        setCard(card, 'ChatGPT error: ' + e.message, true);
-        return;
+    function showPane() {
+      const texts = activeView==='first' ? viewer._firstTexts : viewer._reconsideredTexts;
+      const t = texts[activeAI];
+      if(!t) {
+        pane.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+      } else if(t==='loading') {
+        pane.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+      } else {
+        pane.textContent = t;
       }
-
-      if (d.error) {
-        const msg = d.error.message || '';
-        if (msg.includes('does not exist') || msg.includes('deprecated') || msg.includes('not found') || msg.includes('invalid model')) {
-          continue;
-        }
-        setCard(card, 'ChatGPT error: ' + msg, true);
-        return;
-      }
-
-      const t = d.choices?.[0]?.message?.content || '(no response)';
-      workingGptModel = model;
-      histories.gpt.push({ role: 'assistant', content: t });
-      setCard(card, t);
-      return;
     }
 
-    setCard(card, 'ChatGPT error: All known models are unavailable. OpenAI may have updated their API.', true);
+    viewer._showPane = showPane;
+    viewer._updateViewToggle = updateViewToggle;
+    viewer._activeAI = () => activeAI;
+    viewer._activeView = () => activeView;
+    viewer._btnRecon = btnRecon;
+
+    return viewer;
   }
 
-  // Grok model fallback list - tries each in order until one works
-  const GROK_MODELS = ['grok-4','grok-4.20','grok-3','grok-3-fast','grok-2'];
-  let workingGrokModel = null;
-
-  async function fetchGrok(card) {
-    const messages = histories.grok.map(m => ({ role: m.role, content: m.content }));
-    const modelsToTry = workingGrokModel ? [workingGrokModel] : GROK_MODELS;
-
-    for (const model of modelsToTry) {
-      let res, d;
-      try {
-        res = await fetch('https://api.x.ai/v1/chat/completions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + keys.grok },
-          body: JSON.stringify({ model, max_tokens: 1000, messages })
-        });
-        d = await res.json();
-      } catch(e) {
-        setCard(card, 'Grok error: ' + e.message, true);
-        return;
-      }
-
-      if (d.error) {
-        const msg = d.error.message || '';
-        if (msg.includes('does not exist') || msg.includes('deprecated') || msg.includes('not found') || msg.includes('invalid model') || msg.includes('no longer supported')) {
-          continue;
-        }
-        setCard(card, 'Grok error: ' + msg, true);
-        return;
-      }
-
-      const t = d.choices?.[0]?.message?.content || '(no response)';
-      workingGrokModel = model;
-      histories.grok.push({ role: 'assistant', content: t });
-      setCard(card, t);
-      return;
+  function setViewerPane(viewer, ai, view, text) {
+    if(view==='first') viewer._firstTexts[ai] = text;
+    else               viewer._reconsideredTexts[ai] = text;
+    // Only update pane if this AI+view is currently active
+    if(viewer._activeAI()===ai && viewer._activeView()===view) {
+      viewer._showPane();
     }
-
-    setCard(card, 'Grok error: All known models are unavailable. xAI may have updated their API.', true);
+    viewer._updateViewToggle();
   }
 
-  async function fetchDeepSeek(card) {
-    try {
-      const res=await fetch('https://api.deepseek.com/v1/chat/completions',{
-        method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':`Bearer ${keys.deepseek}`},
-        body:JSON.stringify({model:'deepseek-chat',max_tokens:1000,
-          messages:histories.deepseek.map(m=>({role:m.role,content:m.content}))})
-      });
-      const d=await res.json();
-      if(d.error) throw new Error(d.error.message);
-      const t=d.choices?.[0]?.message?.content||'(no response)';
-      histories.deepseek.push({role:'assistant',content:t}); setCard(card,t);
-    } catch(e){ setCard(card,'DeepSeek error: '+e.message,true); }
+  // ── Cross-pollination (reconsider) ──
+  async function runReconsider(conv, targets, viewer) {
+    // Disable synth button
+    const synthBtn = conv.querySelector('.synth-btn');
+    if(synthBtn) { synthBtn.disabled=true; synthBtn.textContent='⟳ Reconsidering…'; }
+
+    reconsidered = {};
+
+    await Promise.all(targets.map(async ai => {
+      // Show loading in reconsidered pane
+      setViewerPane(viewer, ai, 'reconsidered', 'loading');
+
+      // Build the other AIs' responses
+      const others = targets.filter(o => o!==ai && lastResponses[o] && !lastResponses[o].startsWith('⚠️'));
+      if(others.length===0) {
+        setViewerPane(viewer, ai, 'reconsidered', '(No other responses available to compare.)');
+        return;
+      }
+
+      const names = {claude:'Claude',gemini:'Gemini',gpt:'ChatGPT',grok:'Grok',deepseek:'DeepSeek'};
+      const othersText = others.map(o => `--- ${names[o]} said ---\n${lastResponses[o]}`).join('\n\n');
+      const prompt = `The original question was:\n"${lastQuestion}"\n\nYour initial response was:\n"${lastResponses[ai]}"\n\nHere is how the other AIs responded to the same question:\n\n${othersText}\n\nHaving read those other perspectives, please provide a reconsidered response to the original question. You may agree, disagree, synthesise, or add nuance — whatever you genuinely think is most helpful. Be concise.`;
+
+      const reconsideredText = await fetchAITextOneShot(ai, prompt);
+      reconsidered[ai] = reconsideredText;
+      setViewerPane(viewer, ai, 'reconsidered', reconsideredText);
+    }));
+
+    if(synthBtn) { synthBtn.disabled=true; synthBtn.textContent='✓ Done'; }
   }
 
-  function fetchAI(ai,card) {
-    if(ai==='claude')   return fetchClaude(card);
-    if(ai==='gemini')   return fetchGemini(card);
-    if(ai==='gpt')      return fetchGPT(card);
-    if(ai==='grok')     return fetchGrok(card);
-    if(ai==='deepseek') return fetchDeepSeek(card);
-  }
+  // ── Action row (synth button + AI toggles) ──
+  function addActionRow(conv, targets, viewer) {
+    const ex = conv.querySelector('.action-row'); if(ex) ex.remove();
+    const row = document.createElement('div'); row.className='action-row';
 
-  // ── Follow-up ──
-  function addFollowup(conv) {
-    const ex=conv.querySelector('.followup-row'); if(ex) ex.remove();
-    const row=document.createElement('div'); row.className='followup-row';
-    const lbl=document.createElement('div'); lbl.className='followup-label';
-    lbl.textContent='Continue with…'; row.appendChild(lbl);
-    const wrap=document.createElement('div'); wrap.className='ai-toggles';
-    const ais=[
-      {id:'claude',name:'Claude'},{id:'gemini',name:'Gemini'},
-      {id:'gpt',name:'ChatGPT'},{id:'grok',name:'Grok'},{id:'deepseek',name:'DeepSeek'}
-    ];
-    for(const {id,name} of ais){
+    // Top: synth button + follow-up toggle
+    const top = document.createElement('div'); top.className='action-top';
+
+    const synthBtn = document.createElement('button');
+    synthBtn.className='synth-btn';
+    synthBtn.textContent='✦ Reconsider with peers';
+    synthBtn.onclick = () => runReconsider(conv, targets, viewer);
+    top.appendChild(synthBtn);
+
+    // Synth-on-followup toggle
+    const toggleWrap = document.createElement('label'); toggleWrap.className='synth-toggle';
+    const track = document.createElement('div'); track.className='toggle-track'+(synthOnFollowup?' on':'');
+    const thumb = document.createElement('div'); thumb.className='toggle-thumb';
+    track.appendChild(thumb);
+    const lbl = document.createElement('span'); lbl.textContent='All rounds';
+    toggleWrap.appendChild(track); toggleWrap.appendChild(lbl);
+    toggleWrap.onclick = () => {
+      synthOnFollowup = !synthOnFollowup;
+      track.className = 'toggle-track'+(synthOnFollowup?' on':'');
+    };
+    top.appendChild(toggleWrap);
+    row.appendChild(top);
+
+    // Continue with… toggles
+    const fl = document.createElement('div'); fl.className='followup-label'; fl.textContent='Continue with…'; row.appendChild(fl);
+    const wrap = document.createElement('div'); wrap.className='ai-toggles';
+    const allAIs=[{id:'claude',name:'Claude'},{id:'gemini',name:'Gemini'},{id:'gpt',name:'ChatGPT'},{id:'grok',name:'Grok'},{id:'deepseek',name:'DeepSeek'}];
+    for(const {id,name} of allAIs){
       if(!histories[id].length) continue;
       const btn=document.createElement('button');
       btn.className='ai-toggle'+(activeAIs[id]?` active-${id}`:'');
@@ -661,7 +704,8 @@
       btn.onclick=()=>toggleAI(id,btn);
       wrap.appendChild(btn);
     }
-    row.appendChild(wrap); conv.appendChild(row);
+    row.appendChild(wrap);
+    conv.appendChild(row);
   }
 
   function toggleAI(ai,btn) {
@@ -671,11 +715,141 @@
     btn.classList.toggle(`active-${ai}`,activeAIs[ai]);
   }
 
+  // ── AI fetch helpers ──
+  // fetchAIText: uses conversation history (for normal rounds)
+  async function fetchAIText(ai) {
+    try {
+      if(ai==='claude')   return await _claudeFetch(histories.claude.map(m=>({role:m.role,content:m.content})));
+      if(ai==='gemini')   return await _geminiFetch(histories.gemini);
+      if(ai==='gpt')      return await _gptFetch(histories.gpt.map(m=>({role:m.role,content:m.content})));
+      if(ai==='grok')     return await _grokFetch(histories.grok.map(m=>({role:m.role,content:m.content})));
+      if(ai==='deepseek') return await _deepseekFetch(histories.deepseek.map(m=>({role:m.role,content:m.content})));
+    } catch(e) { return '⚠️ Error: '+e.message; }
+    return '';
+  }
+
+  // fetchAITextOneShot: single prompt, no history (for reconsideration)
+  async function fetchAITextOneShot(ai, prompt) {
+    const msgs = [{role:'user',content:prompt}];
+    try {
+      if(ai==='claude')   return await _claudeFetch(msgs);
+      if(ai==='gemini')   return await _geminiFetch(msgs);
+      if(ai==='gpt')      return await _gptFetch(msgs);
+      if(ai==='grok')     return await _grokFetch(msgs);
+      if(ai==='deepseek') return await _deepseekFetch(msgs);
+    } catch(e) { return '⚠️ Error: '+e.message; }
+    return '';
+  }
+
+  function setCard(card,text,err=false) {
+    const b=card.querySelector('.ai-card-body');
+    if(!b) return;
+    if(err){ b.innerHTML='<span class="error-text">'+text+'</span>'; }
+    else   { b.textContent=text; }
+  }
+
+  // ── Raw fetchers (return text string or throw) ──
+  async function _claudeFetch(messages) {
+    const endpoint = keys.claudeProxy ? keys.claudeProxy.replace(/\/$/, '')+'/v1/messages' : null;
+    if(!endpoint) return '⚠️ Claude requires a proxy URL. Tap ⚙ Keys to set one up.';
+    const res = await fetch(endpoint, {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages})
+    });
+    const d = await res.json();
+    if(d.error) throw new Error(d.error.message);
+    return d.content.map(b=>b.text||'').join('');
+  }
+
+  const GEMINI_MODELS = ['gemini-2.5-flash','gemini-2.5-pro','gemini-2.0-flash','gemini-2.0-pro','gemini-1.5-flash','gemini-1.5-pro'];
+  let workingGeminiModel = null;
+
+  async function _geminiFetch(messages) {
+    const contents = messages.map(m => ({
+      role: m.role==='assistant'?'model':'user', parts:[{text:m.content}]
+    }));
+    const modelsToTry = workingGeminiModel ? [workingGeminiModel] : GEMINI_MODELS;
+    for(const model of modelsToTry){
+      const res = await fetch(
+        'https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+keys.gemini,
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents})}
+      );
+      const d = await res.json();
+      if(d.error){
+        const msg=d.error.message||'';
+        if(msg.includes('not found')||msg.includes('not supported')||msg.includes('no longer available')||msg.includes('deprecated')) continue;
+        throw new Error(msg);
+      }
+      workingGeminiModel=model;
+      return d.candidates?.[0]?.content?.parts?.[0]?.text||'(no response)';
+    }
+    throw new Error('All Gemini models unavailable. Google may have updated their API.');
+  }
+
+  const GPT_MODELS = ['gpt-5.4-mini','gpt-5.4','gpt-4.1-mini','gpt-4.1','gpt-4o-mini','gpt-4o'];
+  let workingGptModel = null;
+
+  async function _gptFetch(messages) {
+    const modelsToTry = workingGptModel ? [workingGptModel] : GPT_MODELS;
+    for(const model of modelsToTry){
+      const res = await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.gpt},
+        body:JSON.stringify({model,max_completion_tokens:1000,messages})
+      });
+      const d = await res.json();
+      if(d.error){
+        const msg=d.error.message||'';
+        if(msg.includes('does not exist')||msg.includes('deprecated')||msg.includes('not found')||msg.includes('invalid model')) continue;
+        throw new Error(msg);
+      }
+      workingGptModel=model;
+      return d.choices?.[0]?.message?.content||'(no response)';
+    }
+    throw new Error('All ChatGPT models unavailable. OpenAI may have updated their API.');
+  }
+
+  const GROK_MODELS = ['grok-4','grok-4.20','grok-3','grok-3-fast','grok-2'];
+  let workingGrokModel = null;
+
+  async function _grokFetch(messages) {
+    const modelsToTry = workingGrokModel ? [workingGrokModel] : GROK_MODELS;
+    for(const model of modelsToTry){
+      const res = await fetch('https://api.x.ai/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.grok},
+        body:JSON.stringify({model,max_tokens:1000,messages})
+      });
+      const d = await res.json();
+      if(d.error){
+        const msg=d.error.message||'';
+        if(msg.includes('does not exist')||msg.includes('deprecated')||msg.includes('not found')||msg.includes('invalid model')||msg.includes('no longer supported')) continue;
+        throw new Error(msg);
+      }
+      workingGrokModel=model;
+      return d.choices?.[0]?.message?.content||'(no response)';
+    }
+    throw new Error('All Grok models unavailable. xAI may have updated their API.');
+  }
+
+  async function _deepseekFetch(messages) {
+    const res = await fetch('https://api.deepseek.com/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.deepseek},
+      body:JSON.stringify({model:'deepseek-chat',max_tokens:1000,messages})
+    });
+    const d = await res.json();
+    if(d.error) throw new Error(d.error.message);
+    return d.choices?.[0]?.message?.content||'(no response)';
+  }
+
+  // ── Init ──
   loadKeys();
 
-  // Prevent iOS zoom on input focus by temporarily setting font-size
   document.querySelectorAll('input, textarea').forEach(el => {
-    el.addEventListener('focus', () => { document.querySelector('meta[name=viewport]').setAttribute('content','width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'); });
+    el.addEventListener('focus', () => {
+      document.querySelector('meta[name=viewport]').setAttribute('content','width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    });
   });
 </script>
 </body>
