@@ -1219,7 +1219,19 @@ async function _claudeFetch(messages) {
   return d.content.map(b=>b.text||'').join('');
 }
 
-const GEMINI_MODELS=['gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-2.5-pro','gemini-2.5-flash','gemini-2.0-flash','gemini-1.5-pro'];
+// Returns true if an API error means "this model doesn't exist / try the next one"
+function isModelUnavailable(msg) {
+  const m = msg.toLowerCase();
+  return m.includes('not found') || m.includes('not exist') || m.includes('does not exist') ||
+         m.includes('not supported') || m.includes('no longer') || m.includes('deprecated') ||
+         m.includes('invalid model') || m.includes('model_not_found') ||
+         m.includes('no response') || m.includes('unavailable') ||
+         m.includes('not available') || m.includes('model not exist') ||
+         m.includes('unknown model') || m.includes('invalid engine') ||
+         msg === '' || msg === '(no response)';
+}
+
+const GEMINI_MODELS=['gemini-2.5-pro','gemini-3.1-pro-preview','gemini-3-flash-preview','gemini-2.5-flash','gemini-2.0-flash'];
 let workingGeminiModel=null;
 async function _geminiFetch(messages, attachment) {
   const contents = messages.map((m, i) => {
@@ -1244,16 +1256,20 @@ async function _geminiFetch(messages, attachment) {
     const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+keys.gemini,
       {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents})});
     const d=await res.json();
-    if(d.error){const msg=d.error.message||'';
-      if(msg.includes('not found')||msg.includes('not supported')||msg.includes('no longer available')||msg.includes('deprecated')) continue;
-      throw new Error(msg);}
+    if(!res.ok || d.error){
+      const msg=(d.error&&d.error.message)||('HTTP '+res.status);
+      if(isModelUnavailable(msg)||res.status===404||res.status===400) continue;
+      throw new Error(msg);
+    }
+    const txt=d.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    if(!txt){continue;}
     workingGeminiModel=model;
-    return d.candidates?.[0]?.content?.parts?.[0]?.text||'(no response)';
+    return txt;
   }
   throw new Error('All Gemini models unavailable.');
 }
 
-const GPT_MODELS=['gpt-5.4','gpt-5.4-mini','gpt-4.1','gpt-4.1-mini','gpt-4o','gpt-4o-mini'];
+const GPT_MODELS=['gpt-5.4','gpt-4.1','gpt-4o','gpt-5.4-mini','gpt-4.1-mini','gpt-4o-mini'];
 let workingGptModel=null;
 async function _gptFetch(messages) {
   // Normalise any plain-string content — GPT handles both string and array content natively
@@ -1261,18 +1277,22 @@ async function _gptFetch(messages) {
   for(const model of (workingGptModel?[workingGptModel]:GPT_MODELS)){
     const res=await fetch('https://api.openai.com/v1/chat/completions',{method:'POST',
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.gpt},
-      body:JSON.stringify({model,max_completion_tokens:1000,messages:normMsgs})});
+      body:JSON.stringify({model,max_tokens:1000,messages:normMsgs})});
     const d=await res.json();
-    if(d.error){const msg=d.error.message||'';
-      if(msg.includes('does not exist')||msg.includes('deprecated')||msg.includes('not found')||msg.includes('invalid model')) continue;
-      throw new Error(msg);}
+    if(!res.ok || d.error){
+      const msg=(d.error&&d.error.message)||('HTTP '+res.status);
+      if(isModelUnavailable(msg)||res.status===404||res.status===422) continue;
+      throw new Error(msg);
+    }
+    const txt=d.choices?.[0]?.message?.content||'';
+    if(!txt){continue;} // empty response = try next model
     workingGptModel=model;
-    return d.choices?.[0]?.message?.content||'(no response)';
+    return txt;
   }
   throw new Error('All ChatGPT models unavailable.');
 }
 
-const GROK_MODELS=['grok-4.1','grok-4','grok-4.20','grok-3','grok-3-fast','grok-2'];
+const GROK_MODELS=['grok-4.20','grok-4','grok-3','grok-3-fast','grok-2'];
 let workingGrokModel=null;
 async function _grokFetch(messages) {
   const normMsgs = messages.map(m => ({ role: m.role, content: m.content }));
@@ -1281,16 +1301,20 @@ async function _grokFetch(messages) {
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.grok},
       body:JSON.stringify({model,max_tokens:1000,messages:normMsgs})});
     const d=await res.json();
-    if(d.error){const msg=d.error.message||'';
-      if(msg.includes('does not exist')||msg.includes('deprecated')||msg.includes('not found')||msg.includes('invalid model')||msg.includes('no longer supported')) continue;
-      throw new Error(msg);}
+    if(!res.ok || d.error){
+      const msg=(d.error&&d.error.message)||('HTTP '+res.status);
+      if(isModelUnavailable(msg)||res.status===404||res.status===422) continue;
+      throw new Error(msg);
+    }
+    const txt=d.choices?.[0]?.message?.content||'';
+    if(!txt){continue;}
     workingGrokModel=model;
-    return d.choices?.[0]?.message?.content||'(no response)';
+    return txt;
   }
   throw new Error('All Grok models unavailable.');
 }
 
-const DEEPSEEK_MODELS = ['deepseek-v4','deepseek-chat'];
+const DEEPSEEK_MODELS = ['deepseek-reasoner','deepseek-chat'];
 let workingDeepSeekModel = null;
 
 async function _deepseekFetch(messages) {
@@ -1307,13 +1331,17 @@ async function _deepseekFetch(messages) {
       headers:{'Content-Type':'application/json','Authorization':'Bearer '+keys.deepseek},
       body:JSON.stringify({model,max_tokens:1000,messages:normMsgs})});
     const d=await res.json();
-    if(d.error){
-      const msg=d.error.message||'';
-      if(msg.includes('does not exist')||msg.includes('not found')||msg.includes('deprecated')) continue;
+    if(!res.ok || d.error){
+      const msg=(d.error&&d.error.message)||('HTTP '+res.status);
+      if(isModelUnavailable(msg)||res.status===404||res.status===422) continue;
       throw new Error(msg);
     }
+    // deepseek-reasoner puts its answer in reasoning_content + content
+    const choice = d.choices?.[0]?.message;
+    const txt = choice?.content || choice?.reasoning_content || '';
+    if(!txt){continue;}
     workingDeepSeekModel = model;
-    return d.choices?.[0]?.message?.content||'(no response)';
+    return txt;
   }
   throw new Error('All DeepSeek models unavailable.');
 }
