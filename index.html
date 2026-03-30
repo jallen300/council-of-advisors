@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- Council of Advisors v1 -->
+<!-- Council of Advisors v2.3 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -281,6 +281,16 @@
     background:rgba(139,105,20,.12);color:var(--claude-color);
     border:1px solid rgba(139,105,20,.25);border-radius:6px;padding:3px 8px;margin-top:4px;}
   .unsupported-note{font-size:12px;color:var(--muted);font-style:italic;padding:8px 14px;}
+
+  /* model + cost badges */
+  .model-badge{font-size:9px;font-family:'JetBrains Mono',monospace;color:var(--muted);
+    background:var(--input-bg);border:1px solid var(--border);border-radius:4px;
+    padding:2px 5px;margin-left:4px;vertical-align:middle;white-space:nowrap;}
+  .cost-badge{font-size:9px;font-family:'JetBrains Mono',monospace;
+    color:#4caf7d;opacity:0.8;padding:0 14px 8px;display:block;text-align:right;}
+  .sp-btn{padding:6px 14px;background:none;border:1px solid var(--border);color:var(--muted);
+    border-radius:8px;font-family:'Syne',sans-serif;font-size:12px;cursor:pointer;transition:all .2s;}
+  .sp-btn:hover,.active-sp{border-color:var(--claude-color);color:var(--claude-color);}
 </style>
 </head>
 <body>
@@ -299,6 +309,11 @@
   </div>
   <div class="drawer-list" id="drawerList"></div>
   <div class="drawer-footer">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+      <span style="font-size:12px;font-weight:700;letter-spacing:.3px;">Spend</span>
+      <button onclick="showSpendModal()" style="background:none;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:4px 10px;border-radius:6px;cursor:pointer;font-family:'Syne',sans-serif;">Details ↗</button>
+    </div>
+    <div id="spendSummary" style="font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--muted);line-height:1.9;margin-bottom:10px;"></div>
     <div class="storage-bar-wrap">
       <span id="storageLabel">Storage</span>
       <div class="storage-bar-bg"><div class="storage-bar-fill" id="storageBar" style="width:0%"></div></div>
@@ -370,6 +385,21 @@
       style="display:none" onchange="handleFileSelect(this)">
     <textarea id="inputBox" placeholder="Put your question to the council…" rows="1" oninput="autoResize(this)"></textarea>
     <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Consult the council">↑</button>
+  </div>
+</div>
+
+<!-- Spend modal -->
+<div class="overlay hidden" id="spendOverlay" onclick="if(event.target.id==='spendOverlay')closeSpendModal()">
+  <div class="settings-panel" style="max-height:80vh;">
+    <div class="settings-title">Spend Log<button class="close-btn" onclick="closeSpendModal()">✕</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button onclick="showSpendPeriod('today')"    id="spBtn_today"   class="sp-btn active-sp">Today</button>
+      <button onclick="showSpendPeriod('week')"     id="spBtn_week"    class="sp-btn">This week</button>
+      <button onclick="showSpendPeriod('month')"    id="spBtn_month"   class="sp-btn">This month</button>
+      <button onclick="showSpendPeriod('all')"      id="spBtn_all"     class="sp-btn">All time</button>
+    </div>
+    <div id="spendDetail" style="font-size:13px;line-height:1.9;"></div>
+    <button class="btn-clear" onclick="if(confirm('Clear all spend data?')){clearCostLog();renderSpendSummary();closeSpendModal();}">Clear spend history</button>
   </div>
 </div>
 
@@ -445,6 +475,56 @@ let keys = { gemini:'', gpt:'', grok:'', deepseek:'', claudeProxy:'' };
 let isLoading = false;
 let histories  = { claude:[], gemini:[], gpt:[], grok:[], deepseek:[] };
 let lastResponses = {}, lastQuestion = '', reconsidered = {};
+
+// ── Cost tracking ──
+// Rough token costs per 1M tokens (input/output) in USD
+const MODEL_COSTS = {
+  'claude-opus-4-6':       { in: 15.00, out: 75.00 },
+  'gemini-2.5-pro':        { in: 1.25,  out: 10.00 },
+  'gemini-3.1-pro-preview':{ in: 2.00,  out: 15.00 },
+  'gpt-5.4':               { in: 2.00,  out: 8.00  },
+  'gpt-5.4-mini':          { in: 0.15,  out: 0.60  },
+  'gpt-4.1':               { in: 2.00,  out: 8.00  },
+  'gpt-4o':                { in: 2.50,  out: 10.00 },
+  'grok-4.20':             { in: 3.00,  out: 15.00 },
+  'grok-4':                { in: 3.00,  out: 15.00 },
+  'grok-3':                { in: 3.00,  out: 15.00 },
+  'deepseek-reasoner':     { in: 0.55,  out: 2.19  },
+  'deepseek-chat':         { in: 0.27,  out: 1.10  },
+};
+const COST_LOG_KEY = 'coa_cost_log'; // localStorage key for spend log
+
+// Per-message cost tracking: { ai: { model, inputTokens, outputTokens, costUsd } }
+let lastMessageCosts = {};
+
+function estimateCost(model, inputChars, outputChars) {
+  const rates = MODEL_COSTS[model] || { in: 2.00, out: 8.00 };
+  const inputTokens  = Math.ceil(inputChars  / 4);
+  const outputTokens = Math.ceil(outputChars / 4);
+  const costUsd = (inputTokens * rates.in + outputTokens * rates.out) / 1e6;
+  return { model, inputTokens, outputTokens, costUsd };
+}
+
+function logCost(ai, model, inputChars, outputChars) {
+  const est = estimateCost(model, inputChars, outputChars);
+  lastMessageCosts[ai] = est;
+  // Persist to log
+  try {
+    const log = JSON.parse(localStorage.getItem(COST_LOG_KEY) || '[]');
+    log.push({ ts: Date.now(), ai, ...est });
+    // Keep last 1000 entries
+    if (log.length > 1000) log.splice(0, log.length - 1000);
+    localStorage.setItem(COST_LOG_KEY, JSON.stringify(log));
+  } catch(e) {}
+}
+
+function getCostLog() {
+  try { return JSON.parse(localStorage.getItem(COST_LOG_KEY) || '[]'); } catch(e) { return []; }
+}
+
+function clearCostLog() {
+  try { localStorage.removeItem(COST_LOG_KEY); } catch(e) {}
+}
 
 // ── Attachment state ──
 // Holds the current pending attachment before it's sent
@@ -554,6 +634,7 @@ function updateConvTitleUI() {
 // ═══════════════════════════════════════════════
 function openDrawer() {
   renderDrawer();
+  renderSpendSummary();
   document.getElementById('drawer').classList.add('open');
   document.getElementById('drawerOverlay').classList.remove('hidden');
 }
@@ -859,7 +940,14 @@ async function sendMessage() {
   const conv = document.getElementById('conversations');
   const roundEl = document.createElement('div'); roundEl.className = 'round';
   const rl = document.createElement('div'); rl.className = 'round-label';
-  rl.textContent = 'Consultation ' + (currentRounds.length + 1); roundEl.appendChild(rl);
+  const activeCount = targets.length;
+  const totalActive = ['claude','gemini','gpt','grok','deepseek'].filter(ai => ai==='claude' ? !!keys.claudeProxy : !!keys[ai]).length;
+  const isSolo = activeCount === 1;
+  const names = {claude:'Claude',gemini:'Gemini',gpt:'ChatGPT',grok:'Grok',deepseek:'DeepSeek'};
+  rl.textContent = isSolo
+    ? 'Private · ' + (names[targets[0]]||targets[0])
+    : 'Consultation ' + (currentRounds.length + 1);
+  roundEl.appendChild(rl);
   const ub = document.createElement('div'); ub.className = 'user-bubble';
   ub.textContent = text;
   if (attachment) {
@@ -894,6 +982,7 @@ async function sendMessage() {
     await runReconsider(conv, targets, viewer, roundData);
   }
 
+  renderSpendSummary();
   isLoading = false;
   document.getElementById('sendBtn').disabled = false;
   scrollToBottom();
@@ -959,6 +1048,42 @@ function setViewerPane(viewer, ai, view, text) {
   else                viewer._reconsideredTexts[ai] = text;
   if (viewer._getActiveAI()===ai && viewer._getActiveView()===view) viewer._showPane();
   viewer._updateToggle();
+
+  // Add model badge to the AI's tab once we have a response
+  if (view === 'first' && text && !text.startsWith('⚠️') && text !== 'loading') {
+    const costInfo = lastMessageCosts[ai];
+    if (costInfo) {
+      // Update tab label to include model name
+      const tabBar = viewer.querySelector('.ai-tabs');
+      if (tabBar) {
+        const tab = Array.from(tabBar.querySelectorAll('.ai-tab')).find(t => t.dataset.ai === ai);
+        if (tab && !tab.querySelector('.model-badge')) {
+          const badge = document.createElement('span');
+          badge.className = 'model-badge';
+          badge.title = 'Model used';
+          // Shorten model name for display
+          const short = costInfo.model
+            .replace('claude-','').replace('gemini-','').replace('gpt-','')
+            .replace('-preview','').replace('deepseek-','ds-')
+            .replace('-preview','');
+          badge.textContent = short;
+          tab.appendChild(badge);
+        }
+      }
+      // Add cost line below response pane
+      const pane = viewer.querySelector('.response-pane');
+      if (pane) {
+        const existingCost = viewer.querySelector('.cost-badge-'+ai);
+        if (!existingCost) {
+          const costEl = document.createElement('span');
+          costEl.className = 'cost-badge cost-badge-'+ai;
+          const cents = (costInfo.costUsd * 100).toFixed(3);
+          costEl.textContent = '~$' + costInfo.costUsd.toFixed(5) + ' · ' + costInfo.inputTokens + ' in / ' + costInfo.outputTokens + ' out tokens';
+          pane.parentNode.insertBefore(costEl, pane.nextSibling);
+        }
+      }
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════
@@ -1039,6 +1164,12 @@ function addActionRow(conv, targets, viewer, isActive) {
     wrap.appendChild(btn);
   });
   row.appendChild(wrap);
+
+  // Private note: explain that deselecting advisors = private exchange preserved in their history
+  const note = document.createElement('div');
+  note.style.cssText='font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4;font-family:"JetBrains Mono",monospace;';
+  note.textContent='Deselect advisors to send a private message to specific ones. Their full history is preserved.';
+  row.appendChild(note);
   conv.appendChild(row);
 }
 
@@ -1144,11 +1275,7 @@ function showSummaryNotice(ai) {
 // ═══════════════════════════════════════════════
 async function fetchAIText(ai, attachment) {
   try {
-    // Get compressed history (text-only messages)
     const msgs = await getCompressedHistory(ai);
-
-    // If there's an attachment, replace the last user message content
-    // with the multimodal version for this specific AI
     if (attachment && msgs.length > 0) {
       const last = msgs[msgs.length - 1];
       if (last.role === 'user') {
@@ -1156,26 +1283,35 @@ async function fetchAIText(ai, attachment) {
         msgs[msgs.length - 1] = { role: 'user', content: richContent };
       }
     }
+    let result;
+    if(ai==='claude')   result = await _claudeFetch(msgs);
+    else if(ai==='gemini')   result = await _geminiFetch(msgs, attachment);
+    else if(ai==='gpt')      result = await _gptFetch(msgs);
+    else if(ai==='grok')     result = await _grokFetch(msgs);
+    else if(ai==='deepseek') result = await _deepseekFetch(msgs);
 
-    if(ai==='claude')   return await _claudeFetch(msgs);
-    if(ai==='gemini')   return await _geminiFetch(msgs, attachment);
-    if(ai==='gpt')      return await _gptFetch(msgs);
-    if(ai==='grok')     return await _grokFetch(msgs);
-    if(ai==='deepseek') return await _deepseekFetch(msgs);
+    // Unwrap {text, model, inputTokens, outputTokens} result object
+    if (result && typeof result === 'object' && 'text' in result) {
+      logCost(ai, result.model, (result.inputTokens||0)*4, (result.outputTokens||0)*4);
+      return result.text;
+    }
+    return result || '';
   } catch(e) { return '⚠️ Error: '+e.message; }
-  return '';
 }
 
 async function fetchAITextOneShot(ai, prompt) {
   const msgs = [{role:'user',content:prompt}];
   try {
-    if(ai==='claude')   return await _claudeFetch(msgs);
-    if(ai==='gemini')   return await _geminiFetch(msgs);
-    if(ai==='gpt')      return await _gptFetch(msgs);
-    if(ai==='grok')     return await _grokFetch(msgs);
-    if(ai==='deepseek') return await _deepseekFetch(msgs);
+    let result;
+    if(ai==='claude')   result = await _claudeFetch(msgs);
+    else if(ai==='gemini')   result = await _geminiFetch(msgs);
+    else if(ai==='gpt')      result = await _gptFetch(msgs);
+    else if(ai==='grok')     result = await _grokFetch(msgs);
+    else if(ai==='deepseek') result = await _deepseekFetch(msgs);
+    // Unwrap
+    if (result && typeof result === 'object' && 'text' in result) return result.text;
+    return result || '';
   } catch(e) { return '⚠️ Error: '+e.message; }
-  return '';
 }
 
 // ═══════════════════════════════════════════════
@@ -1185,28 +1321,30 @@ async function _claudeFetch(messages) {
   const endpoint = keys.claudeProxy ? keys.claudeProxy.replace(/\/$/,'')+'/v1/messages' : null;
   if(!endpoint) return '⚠️ Claude requires a proxy URL. Tap ⚙ Keys to set one up.';
 
-  // Add cache_control to all messages except the last (newest) one.
-  // Anthropic caches these prefixes at ~10% of normal token cost.
+  // Add cache_control to eligible messages — max 4 blocks allowed by Anthropic.
+  // We cache only the last 4 non-final messages that are long enough to benefit.
+  const MAX_CACHE_BLOCKS = 4;
+  let cacheCount = 0;
+  // First pass: identify which indices get cache_control (last 4 eligible non-final)
+  const eligibleIdxs = [];
+  for (let i = 0; i < messages.length - 1; i++) {
+    const m = messages[i];
+    const txt = Array.isArray(m.content) ? m.content.map(b=>b.text||'').join('') : (m.content||'');
+    if (txt.length > 100) eligibleIdxs.push(i);
+  }
+  const cacheIdxs = new Set(eligibleIdxs.slice(-MAX_CACHE_BLOCKS));
+
   const cachedMessages = messages.map((m, i) => {
-    const isLast = i === messages.length - 1;
-    // If content is already an array (multimodal), handle carefully
+    if (!cacheIdxs.has(i)) return { role: m.role, content: m.content };
     if (Array.isArray(m.content)) {
-      if (!isLast) {
-        // Add cache_control to the last text block in the array
-        const cached = m.content.map((block, bi) =>
-          bi === m.content.length - 1 && block.type === 'text' && block.text.length > 100
-            ? { ...block, cache_control: { type: 'ephemeral' } }
-            : block
-        );
-        return { role: m.role, content: cached };
-      }
-      return { role: m.role, content: m.content };
+      const cached = m.content.map((block, bi) =>
+        bi === m.content.length - 1 && block.type === 'text' && block.text.length > 100
+          ? { ...block, cache_control: { type: 'ephemeral' } }
+          : block
+      );
+      return { role: m.role, content: cached };
     }
-    // Plain string content
-    if (!isLast && m.content && m.content.length > 100) {
-      return { role: m.role, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] };
-    }
-    return { role: m.role, content: m.content };
+    return { role: m.role, content: [{ type: 'text', text: m.content, cache_control: { type: 'ephemeral' } }] };
   });
 
   const res = await fetch(endpoint, {
@@ -1216,7 +1354,11 @@ async function _claudeFetch(messages) {
   });
   const d = await res.json();
   if(d.error) throw new Error(d.error.message);
-  return d.content.map(b=>b.text||'').join('');
+  const txt = d.content.map(b=>b.text||'').join('');
+  // Log cost using usage from API response if available
+  const inTok  = d.usage?.input_tokens  || 0;
+  const outTok = d.usage?.output_tokens || 0;
+  return { text: txt, model: 'claude-opus-4-6', inputTokens: inTok, outputTokens: outTok };
 }
 
 // Returns true if an API error means "this model doesn't exist / try the next one"
@@ -1253,18 +1395,45 @@ async function _geminiFetch(messages, attachment) {
     return { role: m.role==='assistant'?'model':'user', parts:[{text: textContent}] };
   });
   for(const model of (workingGeminiModel?[workingGeminiModel]:GEMINI_MODELS)){
-    const res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+keys.gemini,
-      {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents})});
-    const d=await res.json();
+    // 60-second timeout for Gemini (PDF processing can be slow)
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 60000);
+    let res, d;
+    try {
+      res = await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+keys.gemini,
+        {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents}),signal:controller.signal});
+      d = await res.json();
+    } catch(fetchErr) {
+      clearTimeout(timer);
+      if (fetchErr.name === 'AbortError') throw new Error('Gemini timed out after 60s — try a smaller file or plain text');
+      throw fetchErr;
+    }
+    clearTimeout(timer);
     if(!res.ok || d.error){
       const msg=(d.error&&d.error.message)||('HTTP '+res.status);
-      if(isModelUnavailable(msg)||res.status===404||res.status===400) continue;
+      // If inline PDF not supported, fall back to text-only contents
+      if(msg.includes('inline_data') || msg.includes('media_type') || msg.includes('not supported') || res.status===400){
+        // Retry this model with text-only contents (strip inlineData)
+        const textOnlyContents = contents.map(c => ({
+          role: c.role,
+          parts: c.parts.map(p => p.inlineData ? {text:'[File content was sent as text below]'} : p)
+        }));
+        const res2 = await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+model+':generateContent?key='+keys.gemini,
+          {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:textOnlyContents})});
+        const d2 = await res2.json();
+        if(!res2.ok || d2.error) continue;
+        const txt2 = d2.candidates?.[0]?.content?.parts?.[0]?.text||'';
+        if(!txt2) continue;
+        workingGeminiModel = model;
+        return { text: txt2, model, inputTokens: d2.usageMetadata?.promptTokenCount||0, outputTokens: d2.usageMetadata?.candidatesTokenCount||0 };
+      }
+      if(isModelUnavailable(msg)||res.status===404) continue;
       throw new Error(msg);
     }
     const txt=d.candidates?.[0]?.content?.parts?.[0]?.text||'';
     if(!txt){continue;}
     workingGeminiModel=model;
-    return txt;
+    return { text: txt, model, inputTokens: d.usageMetadata?.promptTokenCount||0, outputTokens: d.usageMetadata?.candidatesTokenCount||0 };
   }
   throw new Error('All Gemini models unavailable.');
 }
@@ -1285,9 +1454,9 @@ async function _gptFetch(messages) {
       throw new Error(msg);
     }
     const txt=d.choices?.[0]?.message?.content||'';
-    if(!txt){continue;} // empty response = try next model
+    if(!txt){continue;}
     workingGptModel=model;
-    return txt;
+    return { text: txt, model, inputTokens: d.usage?.prompt_tokens||0, outputTokens: d.usage?.completion_tokens||0 };
   }
   throw new Error('All ChatGPT models unavailable.');
 }
@@ -1309,7 +1478,7 @@ async function _grokFetch(messages) {
     const txt=d.choices?.[0]?.message?.content||'';
     if(!txt){continue;}
     workingGrokModel=model;
-    return txt;
+    return { text: txt, model, inputTokens: d.usage?.prompt_tokens||0, outputTokens: d.usage?.completion_tokens||0 };
   }
   throw new Error('All Grok models unavailable.');
 }
@@ -1341,7 +1510,7 @@ async function _deepseekFetch(messages) {
     const txt = choice?.content || choice?.reasoning_content || '';
     if(!txt){continue;}
     workingDeepSeekModel = model;
-    return txt;
+    return { text: txt, model, inputTokens: d.usage?.prompt_tokens||0, outputTokens: d.usage?.completion_tokens||0 };
   }
   throw new Error('All DeepSeek models unavailable.');
 }
@@ -1412,8 +1581,90 @@ function scrollToBottom(){setTimeout(()=>document.getElementById('bottom').scrol
 // ═══════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════
+// ── Spend modal functions ──
+let currentSpendPeriod = 'today';
+
+function showSpendModal() {
+  closeDrawer();
+  currentSpendPeriod = 'today';
+  document.querySelectorAll('.sp-btn').forEach(b => b.classList.remove('active-sp'));
+  document.getElementById('spBtn_today').classList.add('active-sp');
+  renderSpendDetail('today');
+  document.getElementById('spendOverlay').classList.remove('hidden');
+}
+function closeSpendModal() { document.getElementById('spendOverlay').classList.add('hidden'); }
+function showSpendPeriod(period) {
+  currentSpendPeriod = period;
+  document.querySelectorAll('.sp-btn').forEach(b => b.classList.remove('active-sp'));
+  document.getElementById('spBtn_'+period).classList.add('active-sp');
+  renderSpendDetail(period);
+}
+
+function periodStart(period) {
+  const now = new Date();
+  if (period === 'today') { const d = new Date(now); d.setHours(0,0,0,0); return d.getTime(); }
+  if (period === 'week')  { const d = new Date(now); d.setDate(d.getDate() - d.getDay()); d.setHours(0,0,0,0); return d.getTime(); }
+  if (period === 'month') { return new Date(now.getFullYear(), now.getMonth(), 1).getTime(); }
+  return 0;
+}
+
+function renderSpendDetail(period) {
+  const log = getCostLog();
+  const since = periodStart(period);
+  const filtered = log.filter(e => e.ts >= since);
+  const el = document.getElementById('spendDetail');
+  if (!el) return;
+
+  if (filtered.length === 0) { el.innerHTML = '<div style="color:var(--muted);padding:8px 0;">No spend recorded for this period.</div>'; return; }
+
+  // Group by AI
+  const byAI = {};
+  filtered.forEach(e => {
+    if (!byAI[e.ai]) byAI[e.ai] = { total: 0, calls: 0, models: {} };
+    byAI[e.ai].total += e.costUsd;
+    byAI[e.ai].calls++;
+    byAI[e.ai].models[e.model] = (byAI[e.ai].models[e.model] || 0) + 1;
+  });
+
+  const names = {claude:'Claude',gemini:'Gemini',gpt:'ChatGPT',grok:'Grok',deepseek:'DeepSeek'};
+  const colours = {claude:'var(--claude-color)',gemini:'var(--gemini-color)',gpt:'var(--gpt-color)',grok:'var(--grok-color)',deepseek:'var(--deepseek-color)'};
+  let html = '';
+  let grandTotal = 0;
+
+  Object.entries(byAI).sort((a,b) => b[1].total - a[1].total).forEach(([ai, data]) => {
+    grandTotal += data.total;
+    const topModel = Object.entries(data.models).sort((a,b)=>b[1]-a[1])[0][0];
+    html += '<div style="margin-bottom:10px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;">';
+    html += '<span style="font-weight:700;color:'+colours[ai]+';">'+(names[ai]||ai)+'</span>';
+    html += '<span style="color:var(--text);">$'+data.total.toFixed(4)+'</span>';
+    html += '</div>';
+    html += '<div style="color:var(--muted);font-size:10px;">'+data.calls+' call'+(data.calls!==1?'s':'')+' · '+topModel+'</div>';
+    html += '</div>';
+  });
+
+  html += '<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;display:flex;justify-content:space-between;font-weight:700;">';
+  html += '<span>Total</span><span style="color:var(--claude-color);">$'+grandTotal.toFixed(4)+'</span></div>';
+  html += '<div style="font-size:10px;color:var(--muted);margin-top:6px;">Estimates based on token counts. Actual billing may differ slightly.</div>';
+  el.innerHTML = html;
+}
+
+function renderSpendSummary() {
+  const el = document.getElementById('spendSummary');
+  if (!el) return;
+  const log = getCostLog();
+  const today = periodStart('today');
+  const month = periodStart('month');
+  const todayTotal = log.filter(e=>e.ts>=today).reduce((s,e)=>s+e.costUsd,0);
+  const monthTotal = log.filter(e=>e.ts>=month).reduce((s,e)=>s+e.costUsd,0);
+  el.innerHTML =
+    'Today: $'+todayTotal.toFixed(4)+'<br>'+
+    'This month: $'+monthTotal.toFixed(4);
+}
+
 loadKeys();
 updateStorageBar();
+renderSpendSummary();
 
 // Restore last active conversation on page load
 (function() {
