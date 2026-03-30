@@ -308,12 +308,12 @@
 </div>
 
 <header>
-  <div class="logo" onclick="openDrawer()">
+  <button class="hdr-btn hist" onclick="openDrawer()" title="Sessions" style="margin-right:8px;">☰</button>
+  <div class="logo" onclick="openDrawer()" style="flex:1;">
     <div class="logo-icon">⬡</div>Council of Advisors
   </div>
   <div class="header-actions">
-    <button class="hdr-btn hist" onclick="openDrawer()" title="Conversations">☰</button>
-    <button class="hdr-btn" onclick="newChat()">↺ New session</button>
+    <button class="hdr-btn" onclick="newChat()">↺ New</button>
     <button class="hdr-btn" id="settingsBtn" onclick="openSettings()">⚙ Keys</button>
   </div>
 </header>
@@ -336,7 +336,7 @@
     </div>
     <div class="key-status">
       <div class="key-status-title">API Keys</div>
-      <div class="key-row"><span class="key-row-name claude">Claude</span><span class="dot-set">✓ Built-in</span></div>
+      <div class="key-row"><span class="key-row-name claude">Claude</span><span id="stClaude" class="dot-unset">✗ Not set</span></div>
       <div class="key-row"><span class="key-row-name gemini">Gemini</span><span id="stGemini" class="dot-unset">✗ Not set</span></div>
       <div class="key-row"><span class="key-row-name gpt">ChatGPT</span><span id="stGpt" class="dot-unset">✗ Not set</span></div>
       <div class="key-row"><span class="key-row-name grok">Grok</span><span id="stGrok" class="dot-unset">✗ Not set</span></div>
@@ -727,9 +727,7 @@ async function handleFileSelect(input) {
         const tc   = await page.getTextContent();
         pages.push(tc.items.map(s => s.str).join(' '));
       }
-      extractedText = pages.join('
-
-').trim();
+      extractedText = pages.join('\n\n').trim();
       if (!extractedText) extractedText = '[PDF contains no extractable text — may be a scanned image]';
     } catch(e) {
       extractedText = '[Could not extract PDF text: ' + e.message + ']';
@@ -807,16 +805,10 @@ function buildMessageContent(ai, text, attachment) {
 
   // Fallback: send extracted text for PDFs, or unsupported note for images
   if (attachment.type === 'pdf' && attachment.extractedText) {
-    return text + '
-
-[Attached PDF: ' + attachment.name + ']
-
-' + attachment.extractedText;
+    return text + '\n\n[Attached PDF: ' + attachment.name + ']\n\n' + attachment.extractedText;
   }
   if (attachment.type === 'image') {
-    return text + '
-
-[Note: An image was attached ("' + attachment.name + '") but this advisor cannot process images via API.]';
+    return text + '\n\n[Note: An image was attached ("' + attachment.name + '") but this advisor cannot process images via API.]';
   }
   return text;
 }
@@ -1101,12 +1093,8 @@ async function getCompressedHistory(ai) {
       'The following is the earlier part of a conversation. Please write a concise summary ' +
       '(max 200 words) capturing the key questions asked, positions taken, any deliberation ' +
       'between advisors, and the final conclusions reached. This summary will replace the ' +
-      'original messages to save context space.
-
-' +
-      oldMsgs.map(m => (m.role==='user'?'User':'Assistant')+': '+m.content).join('
-
-');
+      'original messages to save context space.\n\n' +
+      oldMsgs.map(m => (m.role==='user'?'User':'Assistant')+': '+m.content).join('\n\n');
 
     try {
       summaryText = await fetchAITextOneShot(ai, summaryPrompt);
@@ -1126,8 +1114,7 @@ async function getCompressedHistory(ai) {
 
   // Prepend the summary as a user/assistant exchange, then the recent messages
   return [
-    { role: 'user',      content: '[Earlier conversation summary]
-' + summaryText },
+    { role: 'user',      content: '[Earlier conversation summary]\n' + summaryText },
     { role: 'assistant', content: 'Understood. I have the context of our earlier discussion.' },
     ...recentMsgs.map(m => ({role:m.role, content:m.content}))
   ];
@@ -1339,11 +1326,13 @@ function loadKeys() {
   refreshStatusUI();
 }
 function refreshStatusUI() {
-  const map={gemini:'stGemini',gpt:'stGpt',grok:'stGrok',deepseek:'stDeepseek'};
+  const map={claude:'stClaude',gemini:'stGemini',gpt:'stGpt',grok:'stGrok',deepseek:'stDeepseek'};
+  const labels={claude:'Proxy', gemini:'Saved', gpt:'Saved', grok:'Saved', deepseek:'Saved'};
   for(const [ai,id] of Object.entries(map)){
     const el=document.getElementById(id);if(!el)continue;
-    el.textContent=keys[ai]?'✓ Saved':'✗ Not set';
-    el.className=keys[ai]?'dot-set':'dot-unset';
+    const val = ai==='claude' ? keys.claudeProxy : keys[ai];
+    el.textContent=val?'✓ '+labels[ai]:'✗ Not set';
+    el.className=val?'dot-set':'dot-unset';
   }
   const any=Object.values(keys).some(Boolean);
   document.getElementById('settingsBtn').className='hdr-btn'+(any?' active':'');
